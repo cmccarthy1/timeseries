@@ -1,0 +1,6 @@
+fbprophet
+tbats
+statsmodel
+mxnet==1.6
+gluonts
+pandas
