@@ -1,6 +1,8 @@
 # Example Time Series Notebooks
 
-Throughout the notebooks various methods of time series forecasting are implemented on a range of datasets in order to compare implementation and results of models.
+Time series is defined as a sequence of information collected sequentially in time. Unlike most supervised machine learning methods which takes every row in a data frame as an independent entry, time series forecasting takes into account trends observed in historical data in order to forecast future observations. This includes examining attributes such as seasonality components and lagged values among others. 
+
+Throughout these notebooks various methods of time series forecasting are implemented on a range of datasets in order to compare implementation and results of models.
 
 Both EmbedPy and JupyterQ are utilised in the forecasting of and plotting of results.
 

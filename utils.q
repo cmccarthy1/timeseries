@@ -28,8 +28,13 @@ pltresult:{
 /*series - the values of the timeseries
 /*lab - plot label
 plttm:{[dt;series;lab]
- plt[`:plot][dt;series];
+ plt[`:plot][q2pydts dt;series];
  plt[`:xlabel]["Date"];
  plt[`:ylabel][lab];
  plt[`:title][lab," vs Date"];
  plt[`:show][];}
+
+q2pydts:{.p.import[`numpy;
+                   `:array;
+                   "j"$x-("pmd"t)$1970.01m;
+                   `dtype pykw "datetime64[",@[("ns";"M";"D");t:type[x]-12],"]"]}
