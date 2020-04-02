@@ -12,9 +12,11 @@ The following time series libraries are demonstrated in the notebooks:
 
 2. [TBATS](https://github.com/intive-DataScience/tbats): This is a predictive model that uses exponential smoothing to forecast time serues with complex seasonal patterns.
 
-3. [Arima](https://www.statsmodels.org/stable/generated/statsmodels.tsa.arima_model.ARIMA.html): Arima is a auto regression model that uses past lagged values to forecast future values.
+3. [ARIMA](https://www.statsmodels.org/stable/generated/statsmodels.tsa.arima_model.ARIMA.html): ARIMA is a auto regression model that uses past lagged values to forecast future values.
 
 4. [GluonTS](https://github.com/awslabs/gluon-ts): GluonTS utilises deep learning based methods in MXNet for probabilistic time series forecasting.
+
+5. [LSTM](https://keras.io/layers/recurrent/): LSTM is an architrcture that utilises Recurrent Neural Networks (RNN) in order to learn contextual (lagged) information from sequential data.
 
 In each notebook, two datasets are tested:
 
@@ -24,7 +26,7 @@ In each notebook, two datasets are tested:
 These two datasets were chosen to give a well rounded view of how to build both a simple and more complex model. `Daily Temp` represents a simple time series dataframe which requires very little data preparation and has no additional data columns to be included in the training of the model. `Bike Rental` however, is a more complex time series which requires additional data preparation and exogenous variables to be added to the models. 
 
 **Notes**
-These notebooks implement vanilla models of each time series forcasters, for a more in detailled description of these models please follow the links provided. 
+These notebooks implement vanilla models of each time series forcasters with no feature extraction performed on the dataset. For a more in detailed description of these models and how to achieve best results, please follow the links provided in the notebooks.  
 
 ## Requirements
 
