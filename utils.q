@@ -1,3 +1,5 @@
+plt:.p.import[`matplotlib.pyplot]
+
 // Include any missing datetimes in the table
 /*dt - Datetime column name
 /*tab -  table
@@ -6,9 +8,10 @@ datefill:{[dt;tab;tm]
          (flip enlist[dt]!enlist {x<max y}[;tab[dt]]{y+x}[tm]\min tab[dt])lj dt xkey tab}
 
 // Train test split for time series
+/*tab - input table
+/*tar - target values
 /* sz - train test split
-/* tab - table
-ttstm:{[sz;tab]`train`test!tab(0,floor n*1-sz)_til n:count tab}
+ttstm:{[tab;tar;sz]`xtrain`ytrain`xtest`ytest!raze(tab;tar)@\:/:(0,floor n*1-sz)_til n:count tab}
 
 // Plot the predicted and true values
 /*preds - predicted values
@@ -38,3 +41,13 @@ q2pydts:{.p.import[`numpy;
                    `:array;
                    "j"$x-("pmd"t)$1970.01m;
                    `dtype pykw "datetime64[",@[("ns";"M";"D");t:type[x]-12],"]"]}
+
+// Reshape data to LSTM appropriate format
+/*xdata - input data
+/*ydata - target data
+/*n_steps - number of time steps to use
+/*n_feat - number of features being passed to the model
+reshape:{[xdata;ydata;n_steps;n_feat]
+  xdata:npa flip (m:count[xdata]-n)#'(-1_til n:n_steps+1)_\:xdata;
+  xdata:xdata[`:reshape][m;n_steps;n_feat];
+  `xdata`ydata!(xdata;(n)_ydata)}

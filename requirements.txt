@@ -1,3 +1,5 @@
+matplotlib
+numpy
 fbprophet
 tbats
 statsmodel
