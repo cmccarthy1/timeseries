@@ -8,7 +8,7 @@ Both EmbedPy and JupyterQ are utilised in the forecasting of and plotting of res
 
 The following time series libraries are demonstrated in the notebooks:
 
-1. [fbprophet](https://facebook.github.io/prophet/docs/quick_start.html): This is a time series model developed by Facebook for forecasting time series using an additive model where non-linear trends are fitted with seasonality trends such as daily, monthly yearly etc, along with holoday effects.
+1. [fbprophet](https://facebook.github.io/prophet/docs/quick_start.html): This is a time series model developed by Facebook for forecasting time series using an additive regression model where non-linear trends are fitted with seasonality trends such as daily, monthly yearly etc, along with holoday effects using the statistical model STAN.
 
 2. [TBATS](https://github.com/intive-DataScience/tbats): This is a predictive model that uses exponential smoothing to forecast time serues with complex seasonal patterns.
 
@@ -23,7 +23,8 @@ In each notebook, two datasets are tested:
 - Daily Temp: Daily Minimum temperatures reached in Melbourne over a 10 year period
 - Bike Rental : The number of bikes rented every hour recorded by TFL
 
-These two datasets were chosen to give a well rounded view of how to build both a simple and more complex model. `Daily Temp` represents a simple time series dataframe which requires very little data preparation and has no additional data columns to be included in the training of the model. `Bike Rental` however, is a more complex time series which requires additional data preparation and exogenous variables to be added to the models. 
+These two datasets were chosen to give a well rounded view of how to build both a simple and more complex model. 
+`Daily Temp` represents a simple time series dataframe which requires very little data preparation and has no additional data columns to be included in the training of the model. `Bike Rental` however, is a more complex time series which requires additional data preparation and exogenous variables to be added to the models. 
 
 **Notes**
 These notebooks implement vanilla models of each time series forcasters with no feature extraction performed on the dataset. For a more in detailed description of these models and how to achieve best results, please follow the links provided in the notebooks.  
