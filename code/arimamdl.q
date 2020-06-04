@@ -53,7 +53,7 @@ ARMApred:{[mdl;exog;len]
  // if MA=0 then use ARpred
  $[count mdl`resid;
  [preds:{x>count[y[2]]}[len;]i.sngpred[mdl`params;exog;
-     count[mdl`lags]-count[mdl`p_param];;mdl`mdlq]/(mdl`lags;mdl`resid;());
+     count[mdl`lags]-count[mdl`p_param];;mdl`estresid]/(mdl`lags;mdl`resid;());
  last preds];
  ARpred[mdl;exog;len]] 
  }

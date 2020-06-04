@@ -23,7 +23,7 @@ i.ARMAmdl:{[endog;exog;p;q;tr]
  // Using the resid errorrs calculate coefficients for ARMA model
  coef:i.estparam[endog;exog;errors;p;q;tr];
  // return dictionary with required values for forecasting
- `params`tr_param`exog_param`p_param`q_param`lags`resid`mdlq!
+ `params`tr_param`exog_param`p_param`q_param`lags`resid`estresid!
    (coef;coef[tr-1];coef[tr+til count exog[0]];p#neg[q+p]#coef;
         neg[q]#coef;(neg n)#endog;(neg q)#errors;estresid`params)
  }
@@ -50,7 +50,7 @@ i.estparam:{[endog;exog;errors;p;q;tr]
 
 // Predict single ARMA/AR value
 /* d - list of p lag values, q resid errors and the previous predicted values
-/*mdlq - The model params used for estimating resin errors
+/*estresid - The model params used for estimating resin errors
 / . r - list of p lag values, q resid errors and list of predicted values
 i.sngpred:{[params;exog;p;d;estresid] 
  // check if trend is present
