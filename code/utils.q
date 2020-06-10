@@ -67,48 +67,7 @@ i.sngpred:{[params;exog;p;d;estresid]
 
 // Pure MA models utils
 
-// Finding the params for pure MA models
-/. r - returns innovations matrix to calculate past errors
-i.innovations:{[data;q]
- v:(q+1)#0f;
- alpha:(q+1;q+1)#0f;
- v[0]:i.gamma[data;0];
- n:1;
-  while[n<=q;
-   k:0; 
-   while[k<n;
-   j:0; s:0f; 
-    while[j<k;
-    s+:(alpha[k;k-j]*alpha[n;n-j]*v[j]);
-    j+:1; ];
-   alpha[n;n-k]:(i.gamma[data;n-k] - s)%v[k]; 
-   k+:1;
-   s:0f; j:0;
-   while[j<n;
-   s+:(alpha[n;n-j] xexp 2)*v[j];
-   j+:1; ];
-  v[n]:v[0]-s];
-  n+:1; ];
- alpha
- }
-
-// Find residual errors for pure ma model
-/*mat - innovations matrix
-/. r - returns residual errors from model
-i.residuals:{[data;q;mat]
- qdata:neg[q] #data;
- est:(q)#0f;
- n:1;
- while[n < q; 
-        j:1;s:0f;
-        while[j <= n;
-            s:s+(mat[n;j]*(qdata[j-1]-est[j-1]));
-            j+:1];
-        est[n]:s;
-        n+:1;
-        s:0f
-    ];
-    qdata - est}
+// To be reincluded 
 
 // AIC utils
 

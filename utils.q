@@ -1,4 +1,3 @@
-\l p.q
 plt:.p.import[`matplotlib.pyplot]
 
 // Include any missing datetimes in the table

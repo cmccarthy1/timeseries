@@ -85,20 +85,7 @@ ARpred:{[mdl;exog;len]
 
 // PURE MA models
 
-// Fit the moving average model
-/. r - returns the coefficients and residual errors
-MAfit:{[data;q]
- // use innovation method to calculate params
- innmat:i.innovations[data;q];
- // get resid errors
- resids:i.residuals[data;q;innmat];
- `params`errors!(1_last innmat;resids)}
-
-// One step MA pred
-MApred:{[mdl]
- // calculate 1 step ahead
- mdl[`params] mmu mdl`errors}
-
+// Alternative methods to be looked at 
 
 // AIC  Best model Prediction
 
