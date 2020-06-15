@@ -32,10 +32,10 @@ ts_window:{[tab;col_names;funcs;wins]
 /. r         > table with historical lags added, removing the first max[lags] rows 
 /.             as these will be null due to insufficient historical data
 ts_lag:{[tab;col_names;lags]
-  if[1=count colnames;colnames,:()];
+  if[1=count col_names;col_names,:()];
   if[1=count lags;lags,:()];
-  lag_names:`$raze string[colnames],/:\:"_xprev_",/:string lags;
-  lag_vals :raze xprev'[;tab colnames]each lags; 
+  lag_names:`$raze string[col_names],/:\:"_xprev_",/:string lags;
+  lag_vals :raze xprev'[;tab col_names]each lags; 
   max[lags]_tab,'flip lag_names!lag_vals
   }
 
