@@ -2,36 +2,44 @@
 
 \d .tm
 
-/*tab - table to create features from
-/*fp - forecast point( the time a prediction is being made)
-/*col - list of columns to apply the transformations to
+// Time series windowing function for equispaced time steps
+/* tab       = simple table
+/* col_names = symbol list of columns on which to apply windowing
+/* funcs     = list of function names (as symbols) which are to be applied to the datasets
+/* wins      = list of window sized on which to apply these functions
+/. r         > table with functions applied on specified columns over appropriate windows
+/.             remove the first max[wins] columns as these are produced with insufficient information
+tswindow:{[tab;col_names;funcs;wins]
+  // unique combinations of columns/windows and functions to be applied to the dataset
+  uni_combs:(cross/)(funcs;wins;col_names);
+  // column names for windowed functions (remove ".") to ensure that if namespaced columns
+  // exist they don't jeopardize parsing of select statements.
+  win_cols:`$ssr[;".";""]each sv["_"]each string uni_combs;
+  // values from applied functions over associated windows
+  win_vals:{i.swin[get string y 0;y 1;x y 2]}[tab]each uni_combs;
+  max[wins]_tab,'flip win_cols!win_vals
+  }
 
-// Create window feature
-/*n - list of window sizes over which to apply the functions
-/*fnc - list of symbol functions to apply over the window (eg`min `max `avg)
-/r. - returns the table with the additional window feature columns
-addFeatWind:{[tab;n;fp;col;fnc]i.addFeat[tab;n;fp;col;fnc;"wnd"]}
+// Addition of lagged features to equi-spaced time-series data sets
+/* tab       = simple table
+/* col_names = names of the columns to lag
+/* lags      = list of historic lags to be added as columns to the dataset
+/. r         > table with historical lags added, removing the first max[lags] rows
+/.             as these will be null due to insufficient historical data
+ts_lag:{[tab;col_names;lags]
+  if[1=count col_names;col_names,:()];
+  if[1=count lags;lags,:()];
+  lag_names:`$raze string[col_names],/:\:"_xprev_",/:string lags;
+  lag_vals :raze xprev'[;tab col_names]each lags;
+  max[lags]_tab,'flip lag_names!lag_vals
+  }
 
-// Create Lagged value features
-/*n -  list of past values (from forecast point) to extract
-/r. - returns the table with the additional lagged feature columns
-addFeatLag:{[tab;n;fp;col]i.addFeat[tab;n;fp;col;`xprev;"lag"]}
 
-// Update table with new feature columns
-/*typ - the type of feature extraction (lagged (`prev) / windowed (`wnd))
-i.addFeat:{[tab;n;fp;col;fnc;typ]![tab;();0b;raze i.applyFunc[fnc cross n;;typ;fp]each col]}
+// Sliding window utility function
+// Note: this is a modified version of that provided in qidioms, using floating point windows instead
+//       of long windows to increase the diversity of functions that can be applied
+/* f = function taking a single argument (vector) to be applied
+/* w = window size to be applied
+/* s = vector on which sliding window and associated function are to be applied
+i.swin:{[f;w;s]f each{ 1_x,y }\[w#0f;s]}
 
-// Create dictionary of new columns and corresponding functions to extract the data
-/*coln - single name of column to apply feature to
-/r. - returns a dictionary 
-i.applyFunc:{[fnc;coln;typ;fp](`$"_"sv/:string coln,'fnc)!
-        {[x;y;z;fp]get[".tm.i.fnc",z][y;x[1];get string x[0];fp]}[;coln;typ;fp]each fnc}
-
-// Windowed features being applied to a column
-i.fncwnd:{[x;y;z;fp](,;fp#0N;(_;neg[fp];(`.tm.i.windowfnc;x;y;z)))}
-
-// Lagged features being applied to a column
-i.fnclag:{[x;y;z;fp](,;fp#0N;(_;neg[fp];(z;y;x)))}
-
-// Create windowed in dataset and apply function
-i.windowfnc:{z each x[neg[y-1]+til[y]+/:til count x]}
