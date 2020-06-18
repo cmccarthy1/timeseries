@@ -26,12 +26,12 @@ tswindow:{[tab;col_names;funcs;wins]
 /* lags      = list of historic lags to be added as columns to the dataset
 /. r         > table with historical lags added, removing the first max[lags] rows
 /.             as these will be null due to insufficient historical data
-ts_lag:{[tab;col_names;lags]
+tslag:{[tab;col_names;lags]
   if[1=count col_names;col_names,:()];
   if[1=count lags;lags,:()];
   lag_names:`$raze string[col_names],/:\:"_xprev_",/:string lags;
   lag_vals :raze xprev'[;tab col_names]each lags;
-  max[lags]_tab,'flip lag_names!lag_vals
+  tab,'flip lag_names!lag_vals
   }
 
 
