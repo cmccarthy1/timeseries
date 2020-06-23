@@ -93,7 +93,7 @@ ARIMApred:{[mdl;exog;len]
   // Order of differencing originally applied
   dval:count mdl`origd;
   // Revert data to correct scale (remove differencing if previously applied)
-  $[dval;dval _dval{count[x] msum x}/mdl[`origd],::;]preds
+  $[dval;dval _dval{sums x}/mdl[`origd],::;]preds
   }
 
 
