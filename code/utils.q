@@ -1,172 +1,162 @@
-// utility funcs for time series mdls
+// The following are updated versions of the timeseries utils provided in the original code base,
+// some of these changes may be slightly less efficient than the original versions
+// but in the cases where there has been a performance hit this has been done for the 
+// sake of code scalability/readability/flexibility with AutoML/Analyst and support in mind.
+
+// The following are a number of variable definitions that occur throughout this
+// file and are provided at this point to limit repetition 
+/* data = dataset on which functionality is to be applied (vector/table/dict etc)
+/* lag  = long indicating the number of steps to 'lag' a dataset
 
 \d .tm
 
-/*endog - variable to be predicted by model
-/*exog - additional data table to be included when predicting data 
-/*p - number of lags
-/*d - number of differences to apply
-/*q - number of residual errors
-/*tr - include trend or not
+// loading utilities here for testing puposes (should be wrapped in final version)
+\l ml/ml.q
+.ml.loadfile`:init.q
 
-// ARMA/AR models utils
-// Fit ARMA mdl using hennan-Riessann 
-/. r - model parameters used for predictions
+// AR/ARMA model utilities
+/* endog = endogenous variable (time-series)
+/* exog  = exogenous variables (additional variables)
+/* p     = number of autoregressive terms
+/* q     = number of lagged forecast errors
+/* tr    = is a trend line required
+
+// Fit an ARMA model using the Hannan-Rissanen method
 i.ARMAmdl:{[endog;exog;p;q;tr]
- // convert exon table to matrix 
- if[98h~type exog;exog:"f"$i.mat[exog]];
- // build AR model to estimate resid errors
- estresid:ARfit[endog;exog;n:1+(p|q);0b];
- endogm:i.lagmat[endog;n];
- pred:((neg[count endogm]#exog),'endogm) mmu estresid`params;
- errors:(n _endog)-pred;
- // Using the resid errorrs calculate coefficients for ARMA model
- coef:i.estparam[endog;exog;errors;p;q;tr];
- // return dictionary with required values for forecasting
- `params`tr_param`exog_param`p_param`q_param`lags`resid`estresid!
-   (coef;coef[tr-1];coef[tr+til count exog[0]];p#neg[q+p]#coef;
-        neg[q]#coef;(neg n)#endog;(neg q)#errors;estresid`params)
- }
+  // Convert exog to matrix
+  if[98h=type exog;exog:"f"$i.mat[exog]];
+  // Number of lags which must be accounted for
+  n:1+p|q;
+  // Construct an AR model to estimate the residual error parameters
+  estresid:ARfit[endog;exog;n;0b]`params;
+  // Convert the endogenous variable to lagged matrix
+  endogm:i.lagmat[endog;n];
+  // Predict future values based on estimations from AR model and use to estimate error
+  err:(n _endog)-((neg[count endogm]#exog),'endogm)mmu estresid;
+  // Based on the residual errors calculated the coefficients of the ARMA model
+  coeff:i.estparam[endog;exog;err;p;q;tr];
+  // Construct the dictionary for return from the function;
+  key_vals:`params`tr_param`exog_param`p_param`q_param`lags`resid`estresid;
+  params:(coeff(::;tr-1;tr+til count exog 0)),(p#neg[q+p]#coeff;neg[q]#coeff),
+         (neg[n]#endog;neg[q]#err;estresid);
+  key_vals!params
+  }
 
-// Estimate parameters of ARMA mdl
-/*errors - errors from AR mdl
-/. r - estimated params for ARMA mdl
+// Estimate ARMA model parameters using OLS
 i.estparam:{[endog;exog;errors;p;q;tr]
- // create lag matrix for endow values
- endogm:i.lagmat[endog;p];
- // create lag matrix for resid errors
- resid:i.lagmat[errors;q];
- // decide how many values to use from training 
- m:neg count[endogm]&count[resid];
- // join exog, endow and resid values
- x:(m #exog),'(m #endogm),'m #resid;
- // add trend line if specified
- if[tr;x:1f,'x];
- // values to predict
- y:m #endog;
- // use least squared error method to get coefficient values
- inv[fx mmu x] mmu (fx:flip x) mmu y
- }
+  // Create lagged matrices for the endogenous variable and residual errors
+  endogm:i.lagmat[endog;p];
+  resid :i.lagmat[errors;q];
+  // Collect the data needed for estimation
+  vals:(exog;endogm;resid);
+  // How many data points are required
+  m:neg min(count')1_vals;
+  x:(,'/)m#'vals;
+  // If required add a trend line variable
+  if[tr;x:1f,'x];
+  y:m#endog;
+  first enlist[y]lsq flip x
+  }
 
-// Predict single ARMA/AR value
-/* d - list of p lag values, q resid errors and the previous predicted values
-/*estresid - The model params used for estimating resin errors
-/ . r - list of p lag values, q resid errors and list of predicted values
-i.sngpred:{[params;exog;p;d;estresid] 
- // check if trend is present
- pred:$[count[params]~count[m:exog[count d[2]],p _raze d[0 1]];
- // no trend, so multiply coefficients by values
- params mmu m;
- // add trend value
- params[0]+((1_params) mmu m)];
- // if MA>0, estimate error values
- errors:$[count d[1];pred-(estresid mmu exog[count d[2]],d[0]);()];
- // append new lag values, and resid errors for next step calculations
- ((1_d[0]),pred;(1_d[1]),errors;predn:d[2],pred)}
-
-
-// Pure MA models utils
-
-// Finding the params for pure MA models
-/. r - returns innovations matrix to calculate past errors
-i.innovations:{[data;q]
- v:(q+1)#0f;
- alpha:(q+1;q+1)#0f;
- v[0]:i.gamma[data;0]; 
- d:`alpha`v`n!(alpha;v;1);
- d:q{[data;d]
-    d[`k]:0;
-    d:d[`n]{[data;n;d]k:d[`k];
-      s:sum d[`alpha][k;k-til k]*d[`alpha][n;n-til k]*d[`v][til k];
-      d[`alpha;n;n-k]:(i.gamma[data;n-k]-s)%d[`v][k];
-      l:sum(d[`alpha][n;n-til n] xexp 2)*d[`v][til n];
-      d[`v;n]:v[0]-l;d[`k]+:1;d}[data;d`n]/d;
-    d[`n]+:1;
-    d}[data]/d;
- d`alpha
- }
-
-// Find residual errors for pure ma model
-/*mat - innovations matrix
-/. r - returns residual errors from model
-i.residuals:{[data;q;mat]
- qdata:neg[q]#data;
- est:(q)#0f;
- est:first q-1{[mat;qdata;en]
-  est:en[0];n:en[1];
-  j:1+til n;
-  s:sum(mat[n;j]*(qdata[j-1]-est[j-1]));
-  est[n]:s;
-  (est;n+1)}[mat;qdata]/(est;1);
- qdata - est}
-
-// AIC utils
-
-// Fit the model with the params and score it using AIC
-/*train - training data
-/*test - testing data
-/*param - list of parameters used (q,p,trend)
-/. r - the AIC score to the corresponding params
-i.fitscore:{[train;test;len;param]
- // create model using specified params
- mdl:ARIMAfit[train`endog;train`exog;param`p;param`d;param`q;param`tr];
- // predict values using model coeffs
- preds:ARIMApred[mdl;test`exog;len];
- // calculate aic score using predictions and true values
- i.aic[len# test`endog;preds;param]}
-
-// Apply AIC scoring
-/*true - true values
-/*pred - predicted values
-/. r - returns AIC score
-i.aic:{[true;pred;params]
- // get residual sum of squares
- rss:sqr wsum sqr:true-pred;
- // get aic score
- sc:(2*k:sum params)+n*log(rss%n:count[pred]);
- //If k<40, use altered aic score
- $[k<40;sc+(2*k*(k-1))%n-k-1;sc]}
-
-// Auto correlation function
-/*h - order of autocorrelation
-i.acf:{[data;h]
- i.gamma[h;data]%i.gamma[0;data]}
+// Predict a single ARMA/AR value
+/* params = fit parameters
+/* exog   = exogenous variables
+/* p      = number of parameters to ignore?
+/* pvals  = list containing p lag values, q residual errors and previously predicted values
+/* estres = estimated residual error
+i.sngpred:{[params;exog;p;d;estresid]
+  // entry in table from which prediction is being made
+  exogval:exog count d 2;
+  // check if trend is present
+  pred:$[count[params]~count[m:exogval,p _raze d 0 1];
+    // no trend value
+    params mmu m;
+    // add trend value to offset prediction (OoO not important as 2 single vectors)
+    params[0]+m mmu 1_params];
+  // if MA>0, estimate error values
+  errors:$[count d 1;pred - estresid mmu exogval,d 0;()];
+  // append new lag values, and resid errors for next step calculations
+  ((1_d[0]),pred;(1_d[1]),errors;d[2],pred)}
 
 
-// General Utils
+// Akaike Information Criterion
 
-// Create a lagmatrix
-/*data - data to create matrix 
-/*lag - number of lags
-i.lagmat:{[data;lag]
- n:count data;
- data til[n-lag]+\:til lag
- }
+/* true   = true values
+/* pred   = predicted values
+/* params = set of parameters used in creation of the model
+i.aicscore:{[true;pred;params]
+  // Calculate residual sum of squares, normalised for number of values
+  rss:{wsum[x;x]%y}[true-pred;n:count pred];
+  // Number of parameter
+  k:sum params;
+  aic:(2*k)+n*log rss;
+  // if k<40 use the altered aic score
+  $[k<40;aic+(2*k*k+1)%n-k-1;aic]
+  }
 
-// Create matrix from table
-i.mat:{flip value flip x}
+// Fit a model, predict the test, return AIC score
+/* train  = Training data as a dictionary with endog and exog data
+/* test   = Testing data as a dictionary with endog and exog data
+/* len    = Number of steps in the future to be predicted
+/* params = parameters used in prediction
+i.aicfitscore:{[train;test;len;params]
+  // Fit an model using the specified parameters
+  mdl :ARIMAfit[train`endog;train`exog;;;;]. params`p`d`q`tr;
+  // Predict using the fitted model
+  pred:ARIMApred[mdl;test`exog;len];
+  // Score the predictions
+  i.aicscore[len#test`endog;pred;params]
+  }
 
-/ Indicates if the data is stationary
-/*r - returns boolean
-i.stat:{[data]
- adfull:.ml.fresh.i.adfuller[data]`;
- $[adfull[1]<0.05;1b;0b]}
 
-// Differencing to produce stationary time series
-/d* - order of differencing
-/ . r - list of differences in data
-i.diff:{[data;d]
- d _d{deltas x}/data}
+// Autocorrelation functionality
 
-// AutoCorrelation function
-/h* - order of autocorrelation
-/. r -  autocorrelation of order h 
-i.gamma:{[h;data]
- (neg[h]_data) cov h _data}
+// Lagged covariance functionality
+/. r > covariance between a dataset at time t and t-lag 
+i.lagcov:{[data;lag]cov[neg[lag] _ data;lag _ data]}
+
+// Calculate the autocorrelation between a series and lagged version of itself
+i.acf:{[data;lag]i.lagcov[data;lag]%var data}
+
+
+// Matrix creation/manipulation functionality
+
+// Create a lagged matrix with each row containing 'lag' values
+i.lagmat:{[data;lag]data til[count[data]-lag]+\:til lag}
+
+// Matrix from table
+i.mat:{[data]flip value flip data}
+
+
+// Stationarity functionality used to test if datasets are suitable for application of the ARIMA
+// and to facilitate transformation of the data to a more suitable form if relevant
+
+// Function to calculate relevant augmented dickey fuller statistics
+/* dtype = type of the dataset that's being passed to the function
+/. r     > all relevant scores from an augmented dickey fuller test
+i.statscores:{[data;dtype]
+  // Calculate the augmented dickey-fuller scores for a dict/tab/vector input
+  scores:{.ml.fresh.i.adfuller[x]`}@'
+    $[98h=dtype;flip data;
+      99h=dtype;data;
+      dtype in(6h;7h;8h;9h);enlist data;
+      '"Inappropriate type provided"];
+  flip{x[0 1],(0.05>x 1),value x 4}each$[dtype in 98 99h;value::;]scores
+  }
+
+// Are all of the series provided by a user stationary, determined using augmented dickey fuller?
+// dickey fuller test
+/. r    > boolean indicating if all time series are stationary or not
+i.stat:{[data](all/)i.statscores[data;type data][2]}
+
+// time-series differencing to establish stationarity
+/* d    = order of time series differencing
+/. r    > differenced time series with the first d elements removed
+i.diff:{[data;d]d _d{deltas x}/data}
 
 
 // Error calls
-
-i.err.steps:{'`$"Exog length not long enough"} 
+i.err.steps:{'`$"Exog length not long enough"}
 i.err.stat:{'`$"Time series not stationary, try another value of d"}
 i.err.len:{'`$"Endog and Exog not the same length"}
+
