@@ -21,69 +21,133 @@
 /* q     = number of lagged forecast errors
 /* tr    = is a trend line required
 
-// Fit an ARMA model using the Hannan-Rissanen method
-i.ARMAmdl:{[endog;exog;p;q;tr]
+// Fit an (S)ARMA model using the Hannan-Rissanen method
+/. r       > dictionary of params and data for future predictions
+i.SARMAmdl:{[endog;exog;dict;tr;typ]
   // Convert exog to matrix
   if[98h=type exog;exog:"f"$i.mat[exog]];
   // Number of lags which must be accounted for
-  n:1+p|q;
+  n:1+max dict`p`q;
   // Construct an AR model to estimate the residual error parameters
-  estresid:ARfit[endog;exog;n;0b]`params;
-  // Convert the endogenous variable to lagged matrix
-  endogm:i.lagmat[endog;n];
-  // Predict future values based on estimations from AR model and use to estimate error
-  err:(n _endog)-((neg[count endogm]#exog),'endogm)mmu estresid;
+  errs:i.esterrs[endog;exog;n];
   // Based on the residual errors calculated the coefficients of the ARMA model
-  coeff:i.estparam[endog;exog;err;p;q;tr];
+  coeff:i.estparam[endog;exog;errs`err;dict;tr];
   // Construct the dictionary for return from the function;
-  key_vals:`params`tr_param`exog_param`p_param`q_param`lags`resid`estresid;
-  params:(coeff(::;tr-1;tr+til count exog 0)),(p#neg[q+p]#coeff;neg[q]#coeff),
-         (neg[n]#endog;neg[q]#err;estresid);
+  key_vals:get[".tm.i.",typ,"keys"][];
+  params:(coeff(::;tr-1;tr+til count exog 0)),get[".tm.i.",typ,"params"][endog;coeff;dict;errs;n];
   key_vals!params
   }
 
+// Predict future values using an (S)ARMA model
+/. r        > future predictions
+i.SARMApred:{[mdl;exog;len;typ]
+  // allow null to be provided as exogenous variable
+  if[exog~(::);exog:()];
+  // convert exogenous variable to a matrix if required
+  if[98h~type exog;exog:"f"$i.mat exog];
+  // if any residual values are present then use these in prediction otherwise use ARpred
+  $[count mdl`resid;
+    last{x>count y 2}[len;]i.sngpred[mdl`params;exog;mdl`pred_dict;;mdl`estresid;typ]/(mdl`lags;mdl`resid;());
+     ARpred[mdl;exog;len]]
+  }
+
 // Estimate ARMA model parameters using OLS
-i.estparam:{[endog;exog;errors;p;q;tr]
+/* d       = dictionary of p,q and seasonal components
+/. r       > estimated parameters
+i.estparam:{[endog;exog;errors;d;tr]
   // Create lagged matrices for the endogenous variable and residual errors
-  endogm:i.lagmat[endog;p];
-  resid :i.lagmat[errors;q];
+  endogm:i.lagmat[endog;d`p];
+  resid :i.lagmat[errors;d`q];
   // Collect the data needed for estimation
   vals:(exog;endogm;resid);
   // How many data points are required
-  m:neg min(count')1_vals;
+  m:neg min raze(count[endog]-d[`p`P]),count[errors]-d[`q`Q];
   x:(,'/)m#'vals;
+  // add seasonality components
+  if[not 0N~d[`P];x:x,'(m #flip[d[`P]xprev\:endog])];
+  if[not 0N~d[`Q];x:x,'(m #flip[d[`Q]xprev\:errors])];
   // If required add a trend line variable
   if[tr;x:1f,'x];
   y:m#endog;
   first enlist[y]lsq flip x
   }
 
+// Estimate errors for Hannan Riessanan method
+/* n     = AR param to use
+/. r     > the residual errors and paramaters used to calculate them
+i.esterrs:{[endog;exog;n]
+ // Construct an AR model to estimate the residual error parameters
+ estresid:ARfit[endog;exog;n;0b]`params;
+ // Convert the endogenous variable to lagged matrix
+ endogm:i.lagmat[endog;n];
+ // Predict future values based on estimations from AR model and use to estimate error
+ err:(n _endog)-((neg[count endogm]#exog),'endogm)mmu estresid;
+ `params`err!(estresid;err)}
+
 // Predict a single ARMA/AR value
-/* params = fit parameters
-/* exog   = exogenous variables
-/* p      = number of parameters to ignore?
-/* pvals  = list containing p lag values, q residual errors and previously predicted values
-/* estres = estimated residual error
-i.sngpred:{[params;exog;p;d;estresid]
+/* params   = fit parameters
+/* dict     = dictionary containing indexing information
+/* pvals    = list containing p lag values, q residual errors and previously predicted values
+/* estres   = estimated residual error
+/* typ      = typ of model bring used
+/. r        > list of lag values, preds and predicted values
+i.sngpred:{[params;exog;dict;pvals;estresid;typ]
   // entry in table from which prediction is being made
-  exogval:exog count d 2;
+  exogval:exog count pvals 2;
   // check if trend is present
-  pred:$[count[params]~count[m:exogval,p _raze d 0 1];
+  pred:$[count[params]~count[m:exogval,get[".tm.i.",typ,"val"][pvals;dict]];
     // no trend value
     params mmu m;
     // add trend value to offset prediction (OoO not important as 2 single vectors)
     params[0]+m mmu 1_params];
-  // if MA>0, estimate error values
-  errors:$[count d 1;pred - estresid mmu exogval,d 0;()];
-  // append new lag values, and resid errors for next step calculations
-  ((1_d[0]),pred;(1_d[1]),errors;d[2],pred)}
+  // if MA>0, estimate resid errors and append
+  if[count pvals 1;estvals:exogval,$["SAR"~typ;#[neg[dict`n];];]pvals[0];
+   pvals[1]:(1_pvals[1]),pred-mmu[estresid;estvals]];  
+   // append new lag values, for next step calculations
+  ((1_pvals[0]),pred;pvals[1];pvals[2],pred)}
 
+// Extract fitted ARMA model params to return
+/.r         > list of params needed for future predictions
+i.ARMAparams:{[endog;coeff;dict;errs;n]
+ (dict[`p]#neg[sum dict`q`p]#coeff;neg[dict`q]#coeff),
+     (neg[n]#endog;neg[dict`q]#errs`err;errs`params),enlist dict
+ }
+
+// Extract fitted SARIMA model params to return
+/.r         > list of params needed for future predictions
+i.SARparams:{[endog;coeff;dict;errs;n]
+ // number of seasonal components
+ ns:count raze dict`P`Q;
+ // Separate coeffs into normal and seasonal componants
+ coefn:neg[ns]_coeff;coefs:neg[ns]#coeff;
+ params:(dict[`p]#neg[sum dict`q`p]#coefn;neg[dict`q]#coefn;count[dict`P]#coefs;
+   neg count[dict`Q]#coefs),((neg n|max[dict`P])#endog;
+  (neg max raze dict`Q`q)#errs`err;errs`params);
+ // Update dictionary values for seasonality funcs
+ dict[`P`Q]:dict[`P`Q]-min each dict[`P`Q];
+ params,enlist dict,enlist[`n]!enlist n
+ }
+
+// Extract appropriate lag and resid values for ARMA future predictions
+/.r       > list of lag and resid values in appropriate order for predictions
+i.ARMAval:{[pvals;dict] raze#[neg[dict`p];pvals[0]],pvals[1]}
+
+// Extract appropriate lag and resid values for SARIMA future predictions
+/.r      > list of lag and resid values in appropriate order for predictions
+i.SARval:{[pvals;dict];
+  raze#[neg[dict`p];pvals[0]],#[neg[dict`q];pvals[1]],
+   pvals[0][dict[`P]],pvals[1][dict[`Q]]}
+
+// Keys of ARMA and SARIMA model dictionaries
+i.ARMAkeys:`params`tr_param`exog_param`p_param`q_param`lags`resid`estresid`pred_dict;
+i.SARkeys:`params`tr_param`exog_param`p_param`q_param`P_param`Q_param`lags`resid`estresid`pred_dict;
 
 // Akaike Information Criterion
 
 /* true   = true values
 /* pred   = predicted values
 /* params = set of parameters used in creation of the model
+/. r      > aic score
 i.aicscore:{[true;pred;params]
   // Calculate residual sum of squares, normalised for number of values
   rss:{wsum[x;x]%y}[true-pred;n:count pred];
@@ -94,11 +158,12 @@ i.aicscore:{[true;pred;params]
   $[k<40;aic+(2*k*k+1)%n-k-1;aic]
   }
 
-// Fit a model, predict the test, return AIC score
+// Fit a model, predict the test, return AIC score for single set of input params
 /* train  = Training data as a dictionary with endog and exog data
 /* test   = Testing data as a dictionary with endog and exog data
 /* len    = Number of steps in the future to be predicted
 /* params = parameters used in prediction
+/. r      > aic score
 i.aicfitscore:{[train;test;len;params]
   // Fit an model using the specified parameters
   mdl :ARIMAfit[train`endog;train`exog;;;;]. params`p`d`q`tr;
@@ -112,12 +177,11 @@ i.aicfitscore:{[train;test;len;params]
 // Autocorrelation functionality
 
 // Lagged covariance functionality
-/. r > covariance between a dataset at time t and t-lag 
+/. r     > covariance between a dataset at time t and t-lag 
 i.lagcov:{[data;lag]cov[neg[lag] _ data;lag _ data]}
 
 // Calculate the autocorrelation between a series and lagged version of itself
 i.acf:{[data;lag]i.lagcov[data;lag]%var data}
-
 
 // Matrix creation/manipulation functionality
 
@@ -154,9 +218,26 @@ i.stat:{[data](all/)i.statscores[data;type data][2]}
 /. r    > differenced time series with the first d elements removed
 i.diff:{[data;d]d _d{deltas x}/data}
 
+// Seasonal differencing
+/*m = order of the seasonal component
+/*d = data to apply differencing on
+/.r > seasonal diffenced data
+i.sdiff:{[m;d][m]_ d-(m xprev d)}
+
+// Revert season differenced data
+/*origd  = original data before being differenced
+/*dfdata = differenced data
+/.r      > the data reverted back to its original format before differencing 
+i.revseasdf:{[origs;dfdata]
+ seasd:origs,dfdata;
+ n:count origs;
+ [n]_first{x[1]<y}[;count[seasd]]{[n;sdi]
+ sd:sdi[0];i:sdi[1];
+ sd[i]:sd[i-n]+sd[i];
+ (sd;i+1)}[n]/(seasd;n)}
 
 // Error calls
 i.err.steps:{'`$"Exog length not long enough"}
 i.err.stat:{'`$"Time series not stationary, try another value of d"}
-i.err.len:{'`$"Endog and Exog not the same length"}
+i.err.len:{'`$"Endog length less than length"}
 
