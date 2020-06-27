@@ -46,7 +46,7 @@ i.SARMApred:{[mdl;exog;len;typ]
   // convert exogenous variable to a matrix if required
   if[98h~type exog;exog:"f"$i.mat exog];
   // if any residual values are present then use these in prediction otherwise use ARpred
-  $[count mdl`resid;
+  $[count raze mdl[`pred_dict];
     last{x>count y 2}[len;]i.sngpred[mdl`params;exog;mdl`pred_dict;;mdl`estresid;typ]/(mdl`lags;mdl`resid;());
      ARpred[mdl;exog;len]]
   }

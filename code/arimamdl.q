@@ -107,7 +107,7 @@ ARpred:{[mdl;exog;len]
   // convert exogenous variable to a matrix if required
   if[98h~type exog;exog:"f"$i.mat exog];
   // predict and return future values
-  last{x>count y 2}[len;]i.sngpred[mdl`params;exog;enlist[`p]!enlist 0;;();"arma"]/(mdl`lags;();())
+  last{x>count y 2}[len;]i.sngpred[mdl`params;exog;enlist[`p]!enlist count mdl`p_param;;();"ARMA"]/(mdl`lags;();())
   }
 
 // Predict future data using an ARMA model
