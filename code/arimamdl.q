@@ -21,12 +21,13 @@ ARfit:{[endog;exog;p;tr]
   // Check that the dataset must be stationary
   if[not i.stat[endog];i.err.stat[]];
   // Estimate coefficients
-  coeff:i.estparam[endog;exog;endog;`p`q!p,0;tr];
+  coeff:$[sum tr,count[exog];i.estparam[endog;exog;endog;`p`q`tr!p,0,tr];
+       i.durbin_lev[endog;p]];
   // Get lagged values needed for future predictions
   lagvals:neg[p]#endog;
   // return dictionary with required info for predictions
   keyvals:`params`tr_param`exog_param`p_param`lags;
-  params:(coeff;tr#coeff;coeff tr _til count exog 0;neg[p]#coeff;lagvals);
+  params:(coeff;tr#coeff;coeff tr +til count exog 0;neg[p]#coeff;lagvals);
   keyvals!params
   }
 
@@ -36,7 +37,7 @@ ARMAfit:{[endog;exog;p;q;tr]
   $[q~0;
     // if q = 0 then model is and AR model
     ARfit[endog;exog;p;tr],`q_param`resid!(();());
-    i.SARMAmdl[endog;exog;`p`q!p,q;tr;"ARMA"]]
+    i.SARMAmdl[endog;exog;`p`q`tr!p,q,tr;"ARMA"]]
   }
 
 // Fit an AutoRegressive Integrated Moving Average (ARIMA) model
@@ -71,9 +72,12 @@ SARIMAfit:{[endog;exog;p;d;q;tr;s]
  // do stationary check
  if[not i.stat[I];i.err.stat];
  // Create dictionary with p,q and seasonal components
- dict:`p`q`P`Q!p,q,(1+til each s[`P`Q])*s[`m];
+ dict:`p`q`P`Q`m`tr!p,q,((1+til each s[`P`Q])*s[`m]),s[`m],tr;
+ // add addition seas components
+ dict[`seas_add_P]:raze 1+til[dict[`p]]+/:dict[`P];
+ dict[`seas_add_Q]:raze 1+til[dict[`q]]+/:dict[`Q];
  // run ARMA model
- i.SARMAmdl[I;exog;dict;tr;"SAR"],`origd`origs!(d{deltas x}/neg[d] #endog;neg[s[`D]*s`m]#endog)}
+ i.SARMAmdl[I;exog;dict;"SARMA"],`origd`origs!(d{deltas x}/neg[d] #endog;neg[s[`D]*s`m]#endog)}
 
 // Fit an ARCH model
 /. r    > the model parameters and data needed for future predictions
@@ -85,7 +89,7 @@ ARCHfit:{[endog;exog;p]
  errs:i.esterrs[endog;exog;p];
  sqer:errs*errs:errs`err;
  // Using the resid errorrs calculate coeffi
- coeff:i.estparam[sqer;();sqer;`p`q!p,0;1b];
+ coeff:i.estparam[sqer;();sqer;`p`q`tr!p,0,1b];
  // Get lagged values needed for future predictions
  resid:neg[p]#sqer;
  // return dictionary with required info for predictions
@@ -103,7 +107,8 @@ ARCHfit:{[endog;exog;p]
 /. r    > list of predicted values
 ARpred:{[mdl;exog;len]
   // allow null to be provided as exogenous variable
-  if[exog~(::);exog:()];
+  if[exog~(::);exog:()]; 
+  if[not count[mdl[`exog_param]]~count exog[0];i.err.exog[]];
   // convert exogenous variable to a matrix if required
   if[98h~type exog;exog:"f"$i.mat exog];
   // predict and return future values
@@ -133,7 +138,7 @@ SARIMApred:{[mdl;exog;len]
  // predict values
  if[98h~type exog;exog:"f"$.tm.i.mat[exog]];
  // if MA=0 then use ARpred
- preds:i.SARMApred[mdl;exog;len;"SAR"];
+ preds:i.SARMApred[mdl;exog;len;"SARMA"];
  / Order of seasonal differencing originally applied
  sval:count mdl`origs;
  // if seasonal differenced, revert to original
