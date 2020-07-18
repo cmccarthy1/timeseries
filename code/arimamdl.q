@@ -14,15 +14,13 @@
 // Fit a basic AutoRegressive (AR) model
 /. r > the model parameters and data needed for future predictions
 ARfit:{[endog;exog;p;tr]
-  // check that exogenous variables are appropriate
-  if[exog~(::);exog:()];
-  if[not[()~exog]&(count[endog])>count exog;i.err.len[]];
-  if[98h~type exog;exog:"f"$i.mat exog];
-  // Check that the dataset must be stationary
-  if[not i.stat[endog];i.err.stat[]];
+  exog:i.fitdatacheck[endog;exog;1b];
+  // AR models require no non seasonal differencing steps
+  i.differ[endog;0;()!()];
   // Estimate coefficients
-  coeff:$[sum tr,count[exog];i.estparam[endog;exog;endog;`p`q`tr!p,0,tr];
-       i.durbin_lev[endog;p]];
+  coeff:$[sum tr,count[exog];
+    i.estparam[endog;exog;endog;`p`q`tr!p,0,tr];
+    i.durbin_lev[endog;p]];
   // Get lagged values needed for future predictions
   lagvals:neg[p]#endog;
   // return dictionary with required info for predictions
@@ -35,7 +33,7 @@ ARfit:{[endog;exog;p;tr]
 /. r    > the model parameters and data needed for future predictions
 ARMAfit:{[endog;exog;p;q;tr]
   $[q~0;
-    // if q = 0 then model is and AR model
+    // if q = 0 then model is an AR model
     ARfit[endog;exog;p;tr],`q_param`resid!(();());
     i.SARMAmdl[endog;exog;`p`q`tr!p,q,tr;"ARMA"]]
   }
@@ -43,13 +41,9 @@ ARMAfit:{[endog;exog;p;q;tr]
 // Fit an AutoRegressive Integrated Moving Average (ARIMA) model
 /. r    > the model parameters and data needed for future predictions
 ARIMAfit:{[endog;exog;p;d;q;tr]
-  // Check that exogenous variables are appropriate
-  if[exog~(::);exog:()];
-  if[not[()~exog]&count[endog]>count exog;i.err.len[]];
-  // 'Integrate' the time series through differencing
-  I:i.diff[endog;d];
-  // Check the dataset is stationary
-  if[not i.stat I;i.err.stat[]];
+  exog:i.fitdatacheck[endog;exog;1b];
+  // Apply integration (non seasonal)
+  I:i.differ[endog;d;()!()];
   // Fit an ARMA model on the differenced time series
   mdl:ARMAfit[I;d _exog;p;q;tr];
   // Produce the relevant differenced data for use in future predictions
@@ -58,22 +52,18 @@ ARIMAfit:{[endog;exog;p;d;q;tr]
   mdl,orig_diff
   }
 
+
 // Fit a Seasonal ARIMA (SARIMA) model
 /*s      = a dictionary of seasonal components
 /. r     > the model parameters and data needed for future predictions
 SARIMAfit:{[endog;exog;p;d;q;tr;s]
- // chk length
- if[exog~(::);exog:()];
- if[not[()~exog]&count[endog]>count exog;i.err.len[]];
- // diff model
- I:i.diff[endog;d];
- // Seasonality Diff
- if[s`D;I:s[`D]i.sdiff[s`m]/I];
- // do stationary check
- if[not i.stat[I];i.err.stat];
+ // Apply error checking (exogenous data not converted to matrix?)
+ exog:i.fitdatacheck[endog;exog;0b]
+ // Apply appropriate seasonal+non seasonal differencing
+ I:i.differ[endog;d;s];
  // Create dictionary with p,q and seasonal components
  dict:`p`q`P`Q`m`tr!p,q,((1+til each s[`P`Q])*s[`m]),s[`m],tr;
- // add addition seas components
+ // add additional seasonal components
  dict[`seas_add_P]:raze 1+til[dict[`p]]+/:dict[`P];
  dict[`seas_add_Q]:raze 1+til[dict[`q]]+/:dict[`Q];
  // run ARMA model
@@ -82,13 +72,10 @@ SARIMAfit:{[endog;exog;p;d;q;tr;s]
 // Fit an ARCH model
 /. r    > the model parameters and data needed for future predictions
 ARCHfit:{[endog;exog;p]
- // check that exogenous variables are appropriate 
- if[not[()~exog]&(count[endog])>count exog;i.err.len[]];
- // convert exon table to matrix 
- if[98h~type exog;exog:"f"$i.mat[exog]];
+ exog:i.fitdatacheck[endog;exog;1b]
  errs:i.esterrs[endog;exog;p];
  sqer:errs*errs:errs`err;
- // Using the resid errorrs calculate coeffi
+ // Using the resid errorrs calculate coefficients
  coeff:i.estparam[sqer;();sqer;`p`q`tr!p,0,1b];
  // Get lagged values needed for future predictions
  resid:neg[p]#sqer;
@@ -106,11 +93,7 @@ ARCHfit:{[endog;exog;p]
 // Predict future data using an AR model
 /. r    > list of predicted values
 ARpred:{[mdl;exog;len]
-  // allow null to be provided as exogenous variable
-  if[exog~(::);exog:()]; 
-  if[not count[mdl[`exog_param]]~count exog[0];i.err.exog[]];
-  // convert exogenous variable to a matrix if required
-  if[98h~type exog;exog:"f"$i.mat exog];
+  exog:i.preddatacheck[mdl;exog];
   // predict and return future values
   last{x>count y 2}[len;]i.sngpred[mdl`params;exog;enlist[`p]!enlist count mdl`p_param;;();"ARMA"]/(mdl`lags;();())
   }
@@ -135,8 +118,6 @@ ARIMApred:{[mdl;exog;len]
 // Predict future data using a SARIMA model
 /. r    > list of predicted values
 SARIMApred:{[mdl;exog;len]
- // predict values
- if[98h~type exog;exog:"f"$.tm.i.mat[exog]];
  // if MA=0 then use ARpred
  preds:i.SARMApred[mdl;exog;len;"SARMA"];
  / Order of seasonal differencing originally applied
@@ -153,9 +134,9 @@ SARIMApred:{[mdl;exog;len]
 ARCHpred:{[mdl;len]
   // predict and return future values
   last{x>count y 1}[len;]{[params;d]
-  preds:params[0]+d[0] mmu 1_params;
-  ((1_d[0]),preds;d[1],preds)
-  }[mdl`params]/(mdl`resid;())
+    preds:params[0]+d[0] mmu 1_params;
+    ((1_d[0]),preds;d[1],preds)
+    }[mdl`params]/(mdl`resid;())
   }
 
 // Summary of the stationarity of each column of a multivariate time series or a single vector

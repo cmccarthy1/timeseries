@@ -10,11 +10,6 @@
 
 \d .tm
 
-.tm.loadfile`:code/optim.q
-// loading utilities here for testing puposes (should be wrapped in final version)
-\l ml/ml.q
-.ml.loadfile`:init.q
-
 // AR/ARMA/SARMA model utilities
 /* endog = endogenous variable (time-series)
 /* exog  = exogenous variables (additional variables)
@@ -24,8 +19,6 @@
 // Fit an (S)ARMA model using the Hannan-Rissanen method
 /. r       > dictionary of params and data for future predictions
 i.SARMAmdl:{[endog;exog;d;typ]
-  // Convert exog to matrix
-  if[98h=type exog;exog:"f"$i.mat[exog]];
   // Number of lags which must be accounted for
   n:1+max d`p`q;
   // Construct an AR model to estimate the residual error parameters
@@ -43,11 +36,7 @@ i.SARMAmdl:{[endog;exog;d;typ]
 // Predict future values using an (S)ARMA model
 /. r        > future predictions
 i.SARMApred:{[mdl;exog;len;typ]
-  // allow null to be provided as exogenous variable
-  if[exog~(::);exog:()];
-  if[not count[mdl`exog_param]~count exog[0];i.err.exog[]];  
-  // convert exogenous variable to a matrix if required
-  if[98h~type exog;exog:"f"$i.mat exog];
+  exog:i.preddatacheck[mdl;exog];
   // if any residual values are present then use these in prediction otherwise use ARpred
   $[count raze mdl[`pred_dict];
     last{x>count y 2}[len;]i.sngpred[mdl`params;exog;mdl`pred_dict;;mdl`estresid;typ]/(mdl`lags;mdl`resid;());
@@ -340,3 +329,44 @@ i.err.steps:{'`$"Exog length not long enough"}
 i.err.stat:{'`$"Time series not stationary, try another value of d"}
 i.err.len:{'`$"Endog length less than length"}
 i.err.exog:{'`$"Test exog length does not match train exog length"}
+
+
+// New utilities for data checking 
+// The following utility is used in each of the functions that are provided
+// endog = endogenous dataset (floating point vector?)
+// exog  = exogenous input (table/matrix)
+// bool  = does a check on the exogenous variables need to be completed to return as a matrix?
+i.fitdatacheck:{[endog;exog;bool]
+  // Accept null as input
+  if[exog~(::);exog:()];
+  // check that exogenous variable length is appropriate
+  if[not[()~exog]&(count[endog])>count exog;i.err.len[]];
+  // convert exon table to matrix if appropriate
+  if[bool;$[98h~type exog;:"f"$i.mat exog;:exog]];
+  }
+
+i.preddatacheck:{[mdl;exog]
+  // allow null to be provided as exogenous variable
+  if[exog~(::);exog:()];
+  // check that the fit and new params are equivalent
+  if[not count[mdl`exog_param]~count exog[0];i.err.exog[]];
+  // convert exogenous variable to a matrix if required
+  $[98h~type exog;:"f"$i.mat exog;:exog];
+  }
+
+// Differencing error checking and application
+// endog = endogenous dataset
+// diff  = non seasonal differencing component (integer)
+// D = is seasonal differencing component
+// m = order of seasonal differencing
+i.differ:{[endog;d;s]
+  // Apply non seasonal differencing if appropriate (handling of AR/ARMA)
+  if[s~()!();s[`D]:0b];
+  I:i.diff[endog;d];
+  // Apply seasonal differencing if appropriate
+  if[s[`D];I:s[`D]i.sdiff[s`m]/I];
+  // Check stationality
+  if[not i.stat[I];i.err.stat[]];
+  // Return integrated data
+  I
+  }

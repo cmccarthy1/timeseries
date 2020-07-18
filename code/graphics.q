@@ -1,6 +1,6 @@
 \d .tm
 
-plt:.p.import[`matplotlib]`:pyplot
+plt:.p.import[`matplotlib.pyplot]
 
 // Autocorrelation plot
 acfplot:{[data]
