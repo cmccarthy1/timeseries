@@ -24,7 +24,7 @@ optimize:{[f;d]
  fval:f . value d;
  // starting gradient
  gk:i.grad[f;d;eps];
- // Inital Hessan matrix is identity matrix
+ // Inital Hessian matrix is identity matrix
  hess:.ml.eye count d`xk;
  // set initial step guess (step before fval)
  prev_fval:fval+(sqrt sum gk*gk)%2;

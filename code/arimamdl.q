@@ -57,32 +57,31 @@ ARIMAfit:{[endog;exog;p;d;q;tr]
 /*s      = a dictionary of seasonal components
 /. r     > the model parameters and data needed for future predictions
 SARIMAfit:{[endog;exog;p;d;q;tr;s]
- // Apply error checking (exogenous data not converted to matrix?)
- exog:i.fitdatacheck[endog;exog;0b]
- // Apply appropriate seasonal+non seasonal differencing
- I:i.differ[endog;d;s];
- // Create dictionary with p,q and seasonal components
- dict:`p`q`P`Q`m`tr!p,q,((1+til each s[`P`Q])*s[`m]),s[`m],tr;
- // add additional seasonal components
- dict[`seas_add_P]:raze 1+til[dict[`p]]+/:dict[`P];
- dict[`seas_add_Q]:raze 1+til[dict[`q]]+/:dict[`Q];
- // run ARMA model
- i.SARMAmdl[I;exog;dict;"SARMA"],`origd`origs!(d{deltas x}/neg[d] #endog;neg[s[`D]*s`m]#endog)}
+  // Apply error checking (exogenous data not converted to matrix?)
+  exog:i.fitdatacheck[endog;exog;0b]
+  // Apply appropriate seasonal+non seasonal differencing
+  I:i.differ[endog;d;s];
+  // Create dictionary with p,q and seasonal components
+  dict:`p`q`P`Q`m`tr!p,q,((1+til each s[`P`Q])*s[`m]),s[`m],tr;
+  // add additional seasonal components
+  dict[`seas_add_P`seas_add_Q]:(raze'){1+til[x]+/:y}'[(p;q);dict`P`Q]
+  // run ARMA model
+  i.SARMAmdl[I;exog;dict;"SARMA"],`origd`origs!(d{deltas x}/neg[d] #endog;neg[s[`D]*s`m]#endog)}
 
 // Fit an ARCH model
 /. r    > the model parameters and data needed for future predictions
 ARCHfit:{[endog;exog;p]
- exog:i.fitdatacheck[endog;exog;1b]
- errs:i.esterrs[endog;exog;p];
- sqer:errs*errs:errs`err;
- // Using the resid errorrs calculate coefficients
- coeff:i.estparam[sqer;();sqer;`p`q`tr!p,0,1b];
- // Get lagged values needed for future predictions
- resid:neg[p]#sqer;
- // return dictionary with required info for predictions
- keyvals:`params`tr_param`p_param`resid;
- params:(coeff;coeff[0];1_coeff;resid);
- keyvals!params
+  exog:i.fitdatacheck[endog;exog;1b]
+  // Retrieve squared error
+  sqer:err*err:i.esterrs[endog;exog;p]`err;
+  // Using the resid errorrs calculate coefficients
+  coeff:i.estparam[sqer;();sqer;`p`q`tr!p,0,1b];
+  // Get lagged values needed for future predictions
+  resid:neg[p]#sqer;
+  // return dictionary with required info for predictions
+  keyvals:`params`tr_param`p_param`resid;
+  params:(coeff;coeff[0];1_coeff;resid);
+  keyvals!params
  }
 
 // Prediction functionality for AR/ARMA/ARIMA/SARIMA models
