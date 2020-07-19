@@ -3,6 +3,7 @@
 // Load matplotlib
 plt:.p.import[`matplotlib.pyplot]
 
+// Plotting functionality parameters
 /* data  = original dataset
 /* vals  = calculated values
 /* m     = bar indices
@@ -18,6 +19,7 @@ pacfplot:{[data]
   pacf:.ml.fresh.i.pacf[data;neg[1]+m:11&count data]`;
   i.plotfn[data;1_pacf;1_til m;"Partial AutoCorrelation"];}
 
+// Plotting utility
 i.plotfn:{[data;vals;m;title]
   conf:10#1.95%sqrt count data;
   plt[`:bar][m;vals;`width pykw 0.5];

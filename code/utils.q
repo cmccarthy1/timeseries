@@ -130,12 +130,12 @@ i.prep_SARMA:{[params;d]
   lag_q:((d[`tr]+d`p)_params)[til d`q];
   lag_seas_p:((d[`tr]+sum d`q`p)_params)[til count[d`P]];
   lag_seas_q:neg[count d`Q]#params;
-  // get the additional seasonal multiplied coefficients
+  // Function to extract additional seasonal multiplied coefficients
   // These coefficients multiply p x P vals and q x Q vals
-  lag_mul:$[(d`p)&min count d`P;(*/)flip lag_p cross lag_seas_p;2#0f];
-  resid_mul:$[(d`q)&min count d`Q;(*/)flip  lag_q cross lag_seas_q;2#0f];
+  seas_multi:{$[d[x]&min count d upper x;(*/)flip y cross z;2#0f]};
   // return dictionary of the additional coefficients
-  `add_lag_param`add_resid_param!(lag_mul;resid_mul)}
+  `add_lag_param`add_resid_param!(seas_multi[`p;lag_p;lag_seas_p];seas_multi[`q;lag_q;lag_seas_q])
+  } 
 
 // function to be passed to maximum likelihood function to calculate SARIMA coefficients
 /* params = the parameters for the model
