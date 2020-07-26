@@ -58,13 +58,13 @@ ARIMAfit:{[endog;exog;p;d;q;tr]
 /. r     > the model parameters and data needed for future predictions
 SARIMAfit:{[endog;exog;p;d;q;tr;s]
   // Apply error checking (exogenous data not converted to matrix?)
-  exog:i.fitdatacheck[endog;exog;0b]
+  exog:i.fitdatacheck[endog;exog;1b];
   // Apply appropriate seasonal+non seasonal differencing
   I:i.differ[endog;d;s];
   // Create dictionary with p,q and seasonal components
   dict:`p`q`P`Q`m`tr!p,q,((1+til each s[`P`Q])*s[`m]),s[`m],tr;
   // add additional seasonal components
-  dict[`seas_add_P`seas_add_Q]:(raze'){1+til[x]+/:y}'[(p;q);dict`P`Q]
+  dict[`seas_add_P`seas_add_Q]:(raze'){1+til[x]+/:y}'[(p;q);dict`P`Q];
   // run ARMA model
   i.SARMAmdl[I;exog;dict;"SARMA"],`origd`origs!(d{deltas x}/neg[d] #endog;neg[s[`D]*s`m]#endog)}
 
@@ -93,40 +93,37 @@ ARCHfit:{[endog;exog;p]
 /. r    > list of predicted values
 ARpred:{[mdl;exog;len]
   exog:i.preddatacheck[mdl;exog];
-  // predict and return future values
-  last{x>count y 2}[len;]i.sngpred[mdl`params;exog;enlist[`p]!enlist count mdl`p_param;;();"ARMA"]/(mdl`lags;();())
-  }
+  mdl[`pred_dict]:enlist[`p]!enlist count mdl`p_param;
+  mdl[`estresid]:();
+  mdl[`resid]:();
+  i.predfunc[mdl;exog;len;i.sngpredAR]}
 
 // Predict future data using an ARMA model
 /. r    > list of predicted values
 ARMApred:{[mdl;exog;len]
-  i.SARMApred[mdl;exog;len;"ARMA"]
-  }
+  exog:i.preddatacheck[mdl;exog];
+  i.predfunc[mdl;exog;len;i.sngpredARMA]}
 
-// Predict future data using an ARIMA model
-/. r    > list of predicted values
 ARIMApred:{[mdl;exog;len]
-  // Predict values
-  pred:i.SARMApred[mdl;exog;len;"ARMA"];
+  exog:i.preddatacheck[mdl;exog];
+  // Calculate predictions not accounting for differencing
+  pred:i.predfunc[mdl;exog;len;i.sngpredARMA];
+  dval:count mdl`origd;
+  // Revert data to correct scale (remove differencing if previously applied)
+  $[dval;dval _dval{sums x}/mdl[`origd],pred;pred]}
+
+SARIMApred:{[mdl;exog;len]
+  exog:i.preddatacheck[mdl;exog];
+  // Calculate predictions not accounting for differencing
+  preds:$[count raze mdl[`pred_dict];i.predfunc[mdl;exog;len;i.sngpredSARMA];i.ARpred[mdl;exog;len]];
+  // Order of seasonal differencing originally applied
+  sval:count mdl`origs;
+  // if seasonal differenced, revert to original
+  if[sval;preds:i.revseasdf[mdl[`origs];preds]];
   // Order of differencing originally applied
   dval:count mdl`origd;
   // Revert data to correct scale (remove differencing if previously applied)
-  $[dval;dval _dval{sums x}/mdl[`origd],pred;pred]
-  }
-
-// Predict future data using a SARIMA model
-/. r    > list of predicted values
-SARIMApred:{[mdl;exog;len]
- // if MA=0 then use ARpred
- preds:i.SARMApred[mdl;exog;len;"SARMA"];
- / Order of seasonal differencing originally applied
- sval:count mdl`origs;
- // if seasonal differenced, revert to original
- if[sval;preds:i.revseasdf[mdl[`origs];preds]];
- // Order of differencing originally applied
-  dval:count mdl`origd;
- // Revert data to correct scale (remove differencing if previously applied)
- $[dval;dval _dval{sums x}/mdl[`origd],preds;preds]}
+  $[dval;dval _dval{sums x}/mdl[`origd],preds;preds]}
 
 // Predict future volatility using an ARCH model
 /. r    > list of predicted values

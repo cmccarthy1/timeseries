@@ -33,16 +33,6 @@ i.SARMAmdl:{[endog;exog;d;typ]
   key_vals!params
   }
 
-// Predict future values using an (S)ARMA model
-/. r        > future predictions
-i.SARMApred:{[mdl;exog;len;typ]
-  exog:i.preddatacheck[mdl;exog];
-  // if any residual values are present then use these in prediction otherwise use ARpred
-  $[count raze mdl[`pred_dict];
-    last{x>count y 2}[len;]i.sngpred[mdl`params;exog;mdl`pred_dict;;mdl`estresid;typ]/(mdl`lags;mdl`resid;());
-     ARpred[mdl;exog;len]]
-  }
-
 // Estimate ARMA model parameters using OLS
 /. r       > estimated parameters
 i.estparam:{[endog;exog;errors;d]
@@ -120,79 +110,17 @@ i.SARMA_coeff:{[endog;exog;resid;coeff;d]
  // use optimizer function to improve SARMA coefficients
  optim_q:optimize[i.SARMA_max_likeli;opt_d]`xk}
 
-// prep function for sarima model predictions
-/* params = estimated params 
-/* d      = dict with p,q,P,Q info
-/. r      > returns dictionary with new seasonal additional params
-i.prep_SARMA:{[params;d]
-  // split up the coefficients to their respective p,q,P,Q parts
-  lag_p:(d[`tr] _params)[til d`p];
-  lag_q:((d[`tr]+d`p)_params)[til d`q];
-  lag_seas_p:((d[`tr]+sum d`q`p)_params)[til count[d`P]];
-  lag_seas_q:neg[count d`Q]#params;
-  // Function to extract additional seasonal multiplied coefficients
-  // These coefficients multiply p x P vals and q x Q vals
-  seas_multi:{$[d[x]&min count d upper x;(*/)flip y cross z;2#0f]};
-  // return dictionary of the additional coefficients
-  `add_lag_param`add_resid_param!(seas_multi[`p;lag_p;lag_seas_p];seas_multi[`q;lag_q;lag_seas_q])
-  } 
-
 // function to be passed to maximum likelihood function to calculate SARIMA coefficients
 /* params = the parameters for the model
 /* d      = dictionary of any additional arguments needed
 /. r      > returns the sqrt sum of squared errors
 i.SARMA_max_likeli:{[params;d]
  // get additional seasonal parameters 
- d,:i.prep_SARMA[params;d];
+ d,:i.prepSARMA[params;d];
  // calculate sarima model including the additional seasonal coeffs
- preds:i.SARMA_pred[params;d];
+ preds:i.evalSARMA[params;d];
  // calculate error
  sqrt sum n*n:preds-d`real}
-
-// Predict a single AR/ARMA/SARMA value
-/* params   = fit parameters
-/* d        = dictionary containing indexing information
-/* pvals    = list containing p lag values, q residual errors and previously predicted values
-/* estres   = estimated residual error
-/* typ      = typ of model bring used
-/. r        > list of lag values, preds and predicted values
-i.sngpred:{[params;exog;d;pvals;estresid;typ]
-  // entry in table from which prediction is being made
-  exogval:exog count pvals 2;
-  // check if sarma or arma model
-  pred:get[".tm.i.sng_",typ,"_pred"][params;pvals;exogval;d];
-  // if MA>0, estimate resid errors and append
-  if[count pvals 1;estvals:exogval,$["SARMA"~typ;#[neg[d`n];];]pvals[0];
-   pvals[1]:(1_pvals[1]),pred-mmu[estresid;estvals]];  
-   // append new lag values, for next step calculations
-  ((1_pvals[0]),pred;pvals[1];pvals[2],pred)}
-
-// make single prediction for SARIMA model
-/* params = parameters for predictions
-/* d      = dictionary with appropriate split 
-/. r      > returns value for single prediction 
-i.sng_SARMA_pred:{[params;pvals;exogval;d]
- // include the additional seasonal parameters
- d,:i.prep_SARMA[params;d];
- d[`seas_resid_add]:$[(d`q)&min count d`Q;pvals[1]d[`seas_add_Q];2#0f];
- d[`seas_lag_add]:$[(d`p)&min count d`P;pvals[0]d[`seas_add_P];2#0f];
- d[`norm_mat]:exogval,i.SARMAval[pvals;d];
- i.SARMA_pred[params;d]}
-
-i.sng_ARMA_pred:{[params;pvals;exogval;d]
- m:exogval,i.ARMAval[pvals;d];
- $[d[`tr];
-    // add trend value to offset prediction (OoO not important as 2 single vectors)
-    params[0]+m mmu 1_params; 
-    // no trend value
-    params mmu m]}
-
-// sarima prediction function
-/* params = parameters for predictions
-/* dict   = dictionary with data appropriately split
-/. r       > returns the predicted value
-i.SARMA_pred:{[params;d]$[d[`tr];params[0]+;]mmu[d[`norm_mat];d[`tr] _params]+
-    mmu[d[`seas_resid_add];d`add_resid_param]+mmu[d[`seas_lag_add];d`add_lag_param]}
 
 // Extract fitted ARMA model params to return
 /. r         > list of params needed for future predictions
@@ -216,19 +144,90 @@ i.SARMAparams:{[endog;coeff;d;errs;n]
  params,enlist d,`tr`n!d[`tr],n
  }
 
-// Extract appropriate lag and resid values for ARMA future predictions
-/. r       > list of lag and resid values in appropriate order for predictions
-i.ARMAval:{[pvals;d] raze#[neg[d`p];pvals[0]],pvals[1]}
+// Wrapped prediction function for AR/ARMA/SARMA functions
+i.predfunc:{[mdl;exog;len;predfn]
+  last{x>count y 2}[len;]predfn[mdl`params;exog;mdl`pred_dict;;mdl`estresid]/(mdl`lags;mdl`resid;())}
 
-// Extract appropriate lag and resid values for SARIMA future predictions
-/. r      > list of lag and resid values in appropriate order for predictions
-i.SARMAval:{[pvals;d];
-  raze#[neg[d`p];pvals[0]],#[neg[d`q];pvals[1]],
-   pvals[0][d[`P]],pvals[1][d[`Q]]}
+// Prediction function for ARMA model
+i.ARMApred:{[mdl;exog;len]
+  exog:i.preddatacheck[mdl;exog];
+  i.predfunc[mdl;exog;len;i.sngpredARMA]}
+
+// Predict a single ARMA value
+i.sngpredARMA:{[params;exog;d;pvals;estresid]
+  exog:exog count pvals 2;
+  normmat:exog,raze#[neg[d`p];pvals[0]],pvals[1];
+  pred:$[d`tr;params[0]+normmat mmu 1_params;params mmu normmat];
+  if[count pvals 1;
+    estvals:exog,pvals[0];
+    pvals[1]:(1_pvals[1]),pred-mmu[estresid;estvals]];
+  ((1_pvals[0]),pred;pvals[1];pvals[2],pred)}
+
+// Prediction function for AR model
+i.ARpred:{[mdl;exog;len]
+  exog:i.preddatacheck[mdl;exog];
+  mdl[`pred_dict]:enlist[`p]!enlist count mdl`p_param;
+  mdl[`estresid]:();
+  mdl[`resid]:();
+  i.predfunc[mdl;exog;len;i.sngpredAR]}
+
+// Predict a single AR value
+i.sngpredAR:i.sngpredARMA
+
+// SARIMA model calculation functionality
+
+// Prediction function for SARMA model
+i.SARMApred:{[mdl;exog;len]
+  exog:i.preddatacheck[mdl;exog];
+  $[count raze mdl[`pred_dict];
+    i.predfunc[mdl;exog;len;i.sngpredSARMA];
+    i.ARpred[mdl;exog;len]]}
+
+// Predict a single SARMA value
+i.sngpredSARMA:{[params;exog;d;pvals;estresid];
+  exog:exog count pvals 2;
+  d,:i.prepSARMA[params;d];
+  pred:i.predSARMA[params;pvals;exog;d];
+  if[count pvals 1;
+    estvals:exog,neg[d`n]#pvals 0;
+    pvals[1]:(1_pvals[1]),pred-mmu[estresid;estvals]];
+  // append new lag values, for next step calculations
+  ((1_pvals[0]),pred;pvals[1];pvals[2],pred)}
+
+// Calculate required lags for SARMA prediction
+i.prepSARMA:{[params;d]
+  // 1. Calculate or retrieve all necessary seasonal lagged values for SARMA prediction
+  // split up the coefficients to their respective p,q,P,Q parts
+  lag_p:(d[`tr] _params)[til d`p];
+  lag_q:((d[`tr]+d`p)_params)[til d`q];
+  lag_seas_p:((d[`tr]+sum d`q`p)_params)[til count[d`P]];
+  lag_seas_q:neg[count d`Q]#params;
+  // Function to extract additional seasonal multiplied coefficients
+  // These coefficients multiply p x P vals and q x Q vals
+  seas_multi:{[x;y;z;d]$[d[x]&min count d upper x;(*/)flip y cross z;2#0f]};
+  // append new lags to original dictionary
+  `add_lag_param`add_resid_param!(seas_multi[`p;lag_p;lag_seas_p;d];seas_multi[`q;lag_q;lag_seas_q;d])}
+
+// Predict a single SARMA value
+i.predSARMA:{[params;pvals;exog;d]
+  d[`seas_resid_add]:$[(d`q)&min count d`Q;pvals[1]d[`seas_add_Q];2#0f];
+  d[`seas_lag_add]:$[(d`p)&min count d`P;pvals[0]d[`seas_add_P];2#0f];
+  sarmavals:raze#[neg[d`p];pvals[0]],#[neg[d`q];pvals[1]],pvals[0][d[`P]],pvals[1][d[`Q]];
+  d[`norm_mat]:exog,sarmavals;
+  i.evalSARMA[params;d]}
+
+// Evaluate a SARMA value based on provided params/dictionary
+i.evalSARMA:{[params;d]
+  norm_val  :mmu[d`norm_mat;d[`tr] _params];
+  seas_resid:mmu[d`seas_resid_add;d`add_resid_param];
+  seas_lag  :mmu[d`seas_lag_add;d`add_lag_param];
+  $[d`tr;params[0]+;]norm_val+seas_resid+seas_lag}
+
 
 // Keys of ARMA and SARIMA model dictionaries
 i.ARMAkeys:`params`tr_param`exog_param`p_param`q_param`lags`resid`estresid`pred_dict;
 i.SARMAkeys:`params`tr_param`exog_param`p_param`q_param`P_param`Q_param`lags`resid`estresid`pred_dict;
+
 
 // Akaike Information Criterion
 
@@ -351,7 +350,7 @@ i.preddatacheck:{[mdl;exog]
   // check that the fit and new params are equivalent
   if[not count[mdl`exog_param]~count exog[0];i.err.exog[]];
   // convert exogenous variable to a matrix if required
-  $[98h~type exog;:"f"$i.mat exog;:exog];
+  $[98h~type exog;"f"$i.mat exog;exog]
   }
 
 // Differencing error checking and application
