@@ -14,7 +14,7 @@
 // Fit a basic AutoRegressive (AR) model
 /. r > the model parameters and data needed for future predictions
 ARfit:{[endog;exog;p;tr]
-  exog:i.fitdatacheck[endog;exog;1b];
+  exog:i.fitdatacheck[endog;exog];
   // AR models require no non seasonal differencing steps
   i.differ[endog;0;()!()];
   // Estimate coefficients
@@ -35,13 +35,13 @@ ARMAfit:{[endog;exog;p;q;tr]
   $[q~0;
     // if q = 0 then model is an AR model
     ARfit[endog;exog;p;tr],`q_param`resid!(();());
-    i.SARMAmdl[endog;exog;`p`q`tr!p,q,tr;"ARMA"]]
+    i.ARMAmodel[endog;exog;`p`q`tr!p,q,tr]]
   }
 
 // Fit an AutoRegressive Integrated Moving Average (ARIMA) model
 /. r    > the model parameters and data needed for future predictions
 ARIMAfit:{[endog;exog;p;d;q;tr]
-  exog:i.fitdatacheck[endog;exog;1b];
+  exog:i.fitdatacheck[endog;exog];
   // Apply integration (non seasonal)
   I:i.differ[endog;d;()!()];
   // Fit an ARMA model on the differenced time series
@@ -58,20 +58,23 @@ ARIMAfit:{[endog;exog;p;d;q;tr]
 /. r     > the model parameters and data needed for future predictions
 SARIMAfit:{[endog;exog;p;d;q;tr;s]
   // Apply error checking (exogenous data not converted to matrix?)
-  exog:i.fitdatacheck[endog;exog;1b];
+  exog:i.fitdatacheck[endog;exog];
   // Apply appropriate seasonal+non seasonal differencing
   I:i.differ[endog;d;s];
   // Create dictionary with p,q and seasonal components
   dict:`p`q`P`Q`m`tr!p,q,((1+til each s[`P`Q])*s[`m]),s[`m],tr;
   // add additional seasonal components
   dict[`seas_add_P`seas_add_Q]:(raze'){1+til[x]+/:y}'[(p;q);dict`P`Q];
-  // run ARMA model
-  i.SARMAmdl[I;exog;dict;"SARMA"],`origd`origs!(d{deltas x}/neg[d] #endog;neg[s[`D]*s`m]#endog)}
+  // Generate data for regenerate data following differencing
+  origDiffSeason:`origd`origs!(d{deltas x}/neg[d]#endog;neg[prd s`D`m]#endog);
+  // Apply SARMA model and postpend differenced original data
+  i.SARMAmodel[I;exog;dict],origDiffSeason
+  }
 
 // Fit an ARCH model
 /. r    > the model parameters and data needed for future predictions
 ARCHfit:{[endog;exog;p]
-  exog:i.fitdatacheck[endog;exog;1b]
+  exog:i.fitdatacheck[endog;exog];
   // Retrieve squared error
   sqer:err*err:i.esterrs[endog;exog;p]`err;
   // Using the resid errorrs calculate coefficients
@@ -110,7 +113,8 @@ ARIMApred:{[mdl;exog;len]
   pred:i.predfunc[mdl;exog;len;i.sngpredARMA];
   dval:count mdl`origd;
   // Revert data to correct scale (remove differencing if previously applied)
-  $[dval;dval _dval{sums x}/mdl[`origd],pred;pred]}
+  $[dval;dval _dval{sums x}/mdl[`origd],pred;pred]
+  }
 
 SARIMApred:{[mdl;exog;len]
   exog:i.preddatacheck[mdl;exog];
@@ -123,7 +127,8 @@ SARIMApred:{[mdl;exog;len]
   // Order of differencing originally applied
   dval:count mdl`origd;
   // Revert data to correct scale (remove differencing if previously applied)
-  $[dval;dval _dval{sums x}/mdl[`origd],preds;preds]}
+  $[dval;dval _dval{sums x}/mdl[`origd],preds;preds]
+  }
 
 // Predict future volatility using an ARCH model
 /. r    > list of predicted values
