@@ -56,7 +56,7 @@ i.optim_fnc:{[f;d;fnc_keys]
   // search direction
   pk:neg mmu[;]. d`hess`gk;
   // line search func to be inserted to get alpha
-  wolfe:i.wolfe_serch[d`fval;d`prev_fval;d`gk;pk;f;fnc_keys!d fnc_keys];
+  wolfe:i.wolfe_search[d`fval;d`prev_fval;d`gk;pk;f;fnc_keys!d fnc_keys];
   //old f_val goes to previous val
   d[`prev_fval]:d`fval;
   // update values from line search

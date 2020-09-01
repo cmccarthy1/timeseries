@@ -16,169 +16,319 @@
 /* d     = dictionary containing p,q,tr and seasonal P Q values
 /* typ   = typ of model, ARMA or SARMA
 
-i.ARMAmodel:{[endog;exog;d]
-  n:1+max d`p`q;
-  errCoeff:i.estimateErrorCoeffs[endog;exog;d;n];
-  params:i.ARMAparams[endog;errCoeff`coeffs;d;errCoeff`errors;n];
+
+// @private
+// @kind function
+// @category fitUtility
+// @fileoverview ARMA model generation
+// @param endog  {num[]} Endogenous variable (time-series) from which to build a model
+//   this is the target variable from which a value is to be predicted
+// @param exog   {tab}   Exogenous variables, are additional variables which
+//   may be accounted for to improve the model
+// @param params {dict}  parameter sets used to fit the ARMA model
+// @return {dict} dictionary containing all information required to make predictions
+//   using an ARMA based model
+i.ARMAmodel:{[endog;exog;params]
+  n:1+max params`p`q;
+  errCoeff:i.estimateErrorCoeffs[endog;exog;params;n];
+  ARMAparams:i.ARMAparams[endog;errCoeff`coeffs;params;errCoeff`errors;n];
   mdlKeys:`params`tr_param`exog_param`p_param`q_param`lags`resid`estresid`pred_dict;
-  mdlParams:(errCoeff[`coeffs](::;d[`tr]-1;d[`tr]+til count exog 0)),params;
+  mdlParams:(errCoeff[`coeffs](::;params[`tr]-1;params[`tr]+til count exog 0)),ARMAparams;
   mdlKeys!mdlParams
   }
 
-i.SARMAmodel:{[endog;exog;d]
-  n:1+max d`p`q;
-  errCoeff:i.estimateErrorCoeffs[endog;exog;d;n];
-  coeffs:i.SARMA_coeff[endog;exog;errCoeff[`errors]`err;errCoeff`coeffs;d];
-  params:i.SARMAparams[endog;coeffs;d;errCoeff`errors;n];
-  mdlKeys:`params`tr_param`exog_param`p_param`q_param`P_param`Q_param`lags`resid`estresid`pred_dict;
-  mdlParams:(coeffs(::;d[`tr]-1;d[`tr]+til count exog 0)),params;
+// @private
+// @kind function
+// @category fitUtility
+// @fileoverview SARMA model generation
+// @param endog  {num[]} Endogenous variable (time-series) from which to build a model
+//   this is the target variable from which a value is to be predicted
+// @param exog   {tab}   Exogenous variables, are additional variables which
+//   may be accounted for to improve the model
+// @param params {dict}  parameter sets used to fit the SARMA model
+// @return {dict} dictionary containing all information required to make predictions
+//   using an SARMA based model
+i.SARMAmodel:{[endog;exog;params]
+  n:1+max params`p`q;
+  errCoeff:i.estimateErrorCoeffs[endog;exog;params;n];
+  coeffs:i.SARMA_coeff[endog;exog;errCoeff[`errors]`err;errCoeff`coeffs;params];
+  SARMAparams:i.SARMAparams[endog;coeffs;params;errCoeff`errors;n];
+  mdlKeys:`params`tr_param`exog_param`p_param`q_param,
+    `P_param`Q_param`lags`resid`estresid`pred_dict;
+  mdlParams:(coeffs(::;params[`tr]-1;params[`tr]+til count exog 0)),SARMAparams;
   mdlKeys!mdlParams
   }
 
-i.estimateErrorCoeffs:{[endog;exog;d;n]
+// @private
+// @kind function 
+// @category fitUtility
+// @fileoverview Estimate error coefficients
+// @param endog  {num[]} Endogenous variable (time-series) from which to build a model
+//   this is the target variable from which a value is to be predicted
+// @param exog   {tab}   Exogenous variables, are additional variables which
+//   may be accounted for to improve the model
+// @param params {dict}  parameter sets used to estimate error coefficients
+// @param n      {integer} number of error coefficients to estimate
+// @return {dict} dictionary returning coefficients and errors required for 
+//   model generation
+i.estimateErrorCoeffs:{[endog;exog;params;n]
   errs:i.esterrs[endog;exog;n];
-  coeff:i.estparam[endog;exog;errs`err;d];
+  coeff:i.estparam[endog;exog;errs`err;params];
   `errors`coeffs!(errs;coeff)
   }
 
-// Estimate ARMA model parameters using OLS
-/. r       > estimated parameters
-i.estparam:{[endog;exog;errors;d]
+// @private
+// @kind function 
+// @category fitUtility
+// @fileoverview Estimate ARMA model parameters using ordinary least squares
+// @param endog  {num[]} Endogenous variable (time-series) from which to build a model
+//   this is the target variable from which a value is to be predicted
+// @param exog   {tab}   Exogenous variables, are additional variables which
+//   may be accounted for to improve the model
+// @param errors {dict}  errors estimated using `i.estimateErrorCoeffs`
+// @param params {dict}  parameter sets used to estimate model parameters
+// @return {float[]} estimated ARMA model parameters
+i.estparam:{[endog;exog;errors;params]
   // Create lagged matrices for the endogenous variable and residual errors
-  endogm:i.lagmat[endog;d`p];
-  resid :i.lagmat[errors;d`q];
+  endogm:i.lagmat[endog ;params`p];
+  resid :i.lagmat[errors;params`q];
   // Collect the data needed for estimation
   vals:(exog;endogm;resid);
   // How many data points are required
-  m:neg min raze(count[endog]-d[`p`P]),count[errors]-d[`q`Q];
+  m:neg min raze(count[endog]-params[`p`P]),count[errors]-params[`q`Q];
   x:(,'/)m#'vals;
   // add seasonality components
-  if[not 0N~d[`P];x:x,'(m #flip[d[`P]xprev\:endog])];
-  if[not 0N~d[`Q];x:x,'(m #flip[d[`Q]xprev\:errors])];
+  if[not 0N~params[`P];x:x,'(m #flip[params[`P]xprev\:endog])];
+  if[not 0N~params[`Q];x:x,'(m #flip[params[`Q]xprev\:errors])];
   // If required add a trend line variable
-  if[d`tr;x:1f,'x];
+  if[params`tr;x:1f,'x];
   y:m#endog;
   first enlist[y]lsq flip x
   }
 
-// Durbin Levinson function to calculate the coefficients in a pure AR model with no trend for a univariate dataset
-// Implementation can be found here https://www.stat.purdue.edu/~zhanghao/STAT520/handout/DurbinLevHandout.pdf
-/. r - returns coefficients for lag values
-i.durbin_lev:{[data;p]
-  mat:(1+p;1+p)#0f;
-  v:(1+p)#0f;
+// @private
+// @kind function
+// @category fitUtility
+// @fileoverview Durbin Levinson function to calculate the coefficients
+//   in a pure AR model with no trend for a univariate dataset
+//   Implementation can be found here 
+//   https://www.stat.purdue.edu/~zhanghao/STAT520/handout/DurbinLevHandout.pdf
+// @param data {float[][]} dataset from which to estimate the coefficients
+// @param lags {integer} order of the AR(p) model being fit
+// @return {float[]} AR(p) coefficients for specified lagged value
+i.durbin_lev:{[data;lags]
+  mat:(1+lags;1+lags)#0f;
+  vec:(1+lags)#0f;
   mat[1;1]:i.acf[data;1];
-  v[1]:var[data]*(1-xexp[mat[1;1];2]);
+  vec[1]  :var[data]*(1-xexp[mat[1;1];2]);
   reverse 1_last first(p-1){[data;d]
-  mat:d[0];v:d[1];n:d[2];
-  k:n+1;
-  mat[k;k]:(i.lagcov[data;k]-sum mat[n;1+til n]mmu i.lagcov[data]each k-1+til n)%v[n];
-  upd:{[data;n;mat;j]mat[n;j]-(mat[n+1;n+1]*mat[n;1+n-j])}[data;n;mat]each 1+til n;
-  mat[k;1+til n]:upd;
-  v[k]:v[n]*(1-xexp[mat[k;k];2]);
-  (mat;v;n+1)}[data]/(mat;v;1)
+    mat:d[0];vec:d[1];n:d[2];
+    k:n+1;
+    mat[k;k]:(i.lagcov[data;k]-sum mat[n;1+til n]mmu i.lagcov[data]each k-1+til n)%vec[n];
+    upd:{[data;n;mat;j]mat[n;j]-(mat[n+1;n+1]*mat[n;1+n-j])}[data;n;mat]each 1+til n;
+    mat[k;1+til n]:upd;
+    vec[k]:vec[n]*(1-xexp[mat[k;k];2]);
+    (mat;vec;n+1)
+    }[data]/(mat;vec;1)
   }
 
-// Estimate errors for Hannan Riessanan method
-/* n     = AR param to use
-/. r     > the residual errors and paramaters used to calculate them
-i.esterrs:{[endog;exog;n]
+
+// @private
+// @kind function
+// @category fitUtility
+// @fileoverview Estimate residual errors for the Hannan Riessanan method
+// @param endog  {num[]} Endogenous variable (time-series) from which to build a model
+//   this is the target variable from which a value is to be predicted
+// @param exog   {tab/num[][]} Exogenous variables, are additional variables which
+//   may be accounted for to improve the model
+// @param lags   {integer} The number/order of time lags of the model
+// @return {dict} Residual errors and parameters for calculation of these parameters
+i.esterrs:{[endog;exog;lags]
   // Construct an AR model to estimate the residual error parameters
-  estresid:ARfit[endog;exog;n;0b]`params;
+  estresid:ARfit[endog;exog;lags;0b]`params;
   // Convert the endogenous variable to lagged matrix
-  endogm:i.lagmat[endog;n];
+  endogm:i.lagmat[endog;lags];
   // Predict future values based on estimations from AR model and use to estimate error
-  err:(n _endog)-((neg[count endogm]#exog),'endogm)mmu estresid;
+  err:(lags _endog)-((neg[count endogm]#exog),'endogm)mmu estresid;
   `params`err!(estresid;err)
   }
 
-// Use the estimated coefficients as starting points to calculate the sarima coeffs
-/. r  > returns the updated coefficients
-i.SARMA_coeff:{[endog;exog;resid;coeff;d]
+
+// @private
+// @kind function
+// @category fitUtility
+// @fileoverview Estimate coefficients as starting points to calculate the sarima coeffs
+// @param endog  {num[]} Endogenous variable (time-series) from which to build a model
+//   this is the target variable from which a value is to be predicted
+// @param exog   {tab} Exogenous variables, are additional variables which
+//   may be accounted for to improve the model
+// @param resid  {num[][]} residual errors estimated using i.estimateErrorCoeffs 
+// @param coeff  {num[][]} Estimated coefficients for ARMA model using OLS
+// @param params {dict} Information on seasonal and non seasonal lags to be accounted for
+// @return {dict} updated optimized coefficients for SARMA model
+i.SARMA_coeff:{[endog;exog;resid;coeff;params]
   // data length to use
-  len_q:count[resid]-max raze d[`q`Q`seas_add_Q];
-  len_p:count[endog]-max raze d[`p`P`seas_add_P];
+  len_q:count[resid]-max raze params[`q`Q`seas_add_Q];
+  len_p:count[endog]-max raze params[`p`P`seas_add_P];
   // prediction values
-  d[`real]:#[m:neg min len_p,len_q;endog];
+  params[`real]:#[m:neg min len_p,len_q;endog];
   // get lagged values
-  show count endog;
-  lag_val:i.lagmat[endog;d`p];
+  lag_val:i.lagmat[endog;params`p];
   // get seasonal lag values
-  seas_lag:flip d[`P]xprev\:endog;
+  seas_lag:flip params[`P]xprev\:endog;
   // get additional seasonal lag values
-  d[`seas_lag_add]:$[(d`p)&min count d`P;#[m;flip d[`seas_add_P]xprev\:endog];2#0f];
+  params[`seas_lag_add]:$[params[`p]&min count params`P;
+    m#flip params[`seas_add_P]xprev\:endog;
+    2#0f
+    ];
   // get resid vals
-  show count resid;
-  resid_val:i.lagmat[resid;d`q];
-  seas_resid:flip d[`Q]xprev\:resid;
-  d[`seas_resid_add]:$[(d`q)&min count d`Q;#[m;flip d[`seas_add_Q]xprev\:resid];2#0f];
+  resid_val:i.lagmat[resid;params`q];
+  seas_resid:flip params[`Q]xprev\:resid;
+  params[`seas_resid_add]:$[params[`q]&min count params`Q;
+    m#flip params[`seas_add_Q]xprev\:resid;
+    2#0f
+    ];
   // normal arima vals
   vals:(exog;lag_val;resid_val;seas_lag;seas_resid);
-  d[`norm_mat]:(,'/)m#'vals;
-  opt_d:`xk`args!(coeff;d);
+  params[`norm_mat]:(,'/)m#'vals;
+  opt_d:`xk`args!(coeff;params);
   // use optimizer function to improve SARMA coefficients
   optimize[i.SARMA_max_likeli;opt_d]`xk
   }
 
-// function to be passed to maximum likelihood function to calculate SARIMA coefficients
-/* params = the parameters for the model
-/* d      = dictionary of any additional arguments needed
-/. r      > returns the sqrt sum of squared errors
-i.SARMA_max_likeli:{[params;d]
+// @private
+// @kind function
+// @category fitUtility
+// @fileoverview Calculation of the errors in calculation of the SARIMA coefficients 
+// @param params {dict} Parameters required for calculation of SARIMA coefficients
+// @param dict {dict} Additional parameters required in calculation
+// @return {float} returns the square root of the summed, squared errors
+i.SARMA_max_likeli:{[params;dict]
   // get additional seasonal parameters 
-  d,:i.prepSARMA[params;d];
+  dict,:i.prepSARMA[params;dict];
   // calculate sarima model including the additional seasonal coeffs
-  preds:i.evalSARMA[params;d];
+  preds:i.evalSARMA[params;dict];
   // calculate error
-  sqrt sum n*n:preds-d`real
+  sqrt sum n*n:preds-dict`real
   }
 
-// Extract fitted ARMA model params to return
-/. r         > list of params needed for future predictions
-i.ARMAparams:{[endog;coeff;d;errs;n]
-  (d[`p]#neg[sum d`q`p]#coeff;neg[d`q]#coeff),
-  (neg[n]#endog;neg[d`q]#errs`err;errs`params),
-  enlist d
+// @private
+// @kind function
+// @category fitUtility
+// @fileoverview Extract fitted ARMA model params to return
+// @param endog  {num[]} endogenous variable (time-series) from which to build a model
+//   this is the target variable from which a value is to be predicted
+// @param coeff  {num[]} error coefficients
+// @param params {dict}  information on setup of ARMA model
+// @param errors {dict} error and parameter dictionary information
+// @param lags {integer} the number/order of time lags of the model
+// @return {num[]} list of parameters needed for future predictions
+i.ARMAparams:{[endog;coeff;params;errors;lags]
+  (params[`p]#neg[sum params`q`p]#coeff;neg[params`q]#coeff),
+  (neg[lags]#endog;neg[params`q]#errors`err;errors`params),
+  enlist params
   }
 
-// Extract fitted SARIMA model params to return
-/. r         > list of params needed for future predictions
-i.SARMAparams:{[endog;coeff;d;errs;n]
+// @private
+// @kind function
+// @category fitUtility
+// @fileoverview Extract fitted SARMA model params to return
+// @param endog  {num[]} endogenous variable (time-series) from which to build a model
+//   this is the target variable from which a value is to be predicted
+// @param coeff  {num[]} error coefficients
+// @param params {dict}  information on setup of ARMA model
+// @param errors {dict} error and parameter dictionary information
+// @param lags {integer} the number/order of time lags of the model
+// @return {dict} parameters needed for future predictions
+i.SARMAparams:{[endog;coeff;params;errors;lags]
   // number of seasonal components
-  ns:count raze d`P`Q;
+  ns:count raze params`P`Q;
   // Separate coeffs into normal and seasonal componants
   coefn:neg[ns]_coeff;coefs:neg[ns]#coeff;
-  params:(d[`p]#neg[sum d`q`p]#coefn;neg[d`q]#coefn;count[d`P]#coefs;neg count[d`Q]#coefs),
-         ((neg n|max[raze d`P`seas_add_P])#endog;(neg max raze d`p`Q`seas_add_Q)#errs`err;errs`params);
+  sarmaParams:(params[`p]#neg[sum params`q`p]#coefn;
+               neg[params`q]#coefn;count[params`P]#coefs;
+               neg count[params`Q]#coefs),
+              (#[neg lags|max raze params`P`seas_add_P;endog];
+               #[neg max raze params`p`Q`seas_add_Q;errors`err];
+               errors`params);
   // Update dictionary values for seasonality funcs
-  d[`P`Q`seas_add_P`seas_add_Q]:d[`P`Q`seas_add_P`seas_add_Q]-min d[`m];
-  params,enlist d,`tr`n!d[`tr],n
+  params[`P`Q`seas_add_P`seas_add_Q]:params[`P`Q`seas_add_P`seas_add_Q]-min params[`m];
+  sarmaParams,enlist params,`tr`n!params[`tr],lags
   }
 
-// Wrapped prediction function for AR/ARMA/SARMA functions
+
+// Prediction function utilities
+
+// @private
+// @kind function
+// @category predictUtility
+// @fileoverview predict a set number of values based on a fit model AR/ARMA/SARMA
+// @param mdl    {dict} contains all information regarding model parameters and required
+//   residual information
+// @param exog   {tab}   Exogenous variables, are additional variables which
+//   may be accounted for to improve the model
+// @param len    {integer} the number of data points to be predicted
+// @param predfn {function} the function to be used for prediction
+// @return {num[]} predicted values based on fit model
 i.predfunc:{[mdl;exog;len;predfn]
-  last{x>count y 2}[len;]predfn[mdl`params;exog;mdl`pred_dict;;mdl`estresid]/(mdl`lags;mdl`resid;())
+  vals:(mdl`lags;mdl`resid;());
+  last{x>count y 2}[len;]predfn[mdl`params;exog;mdl`pred_dict;;mdl`estresid]/vals
   }
 
-// Prediction function for ARMA model
+
+// ARMA/AR model prediction functionality
+
+// @private
+// @kind function
+// @category predictUtility
+// @fileoverview prediction function for ARMA model
+// @param mdl  {dict} contains all information regarding model parameters and required
+//   residual information
+// @param exog {tab} exogenous variables, are additional variables which
+//   may be accounted for to improve the model
+// @param len  {integer} the number of data points to be predicted
+// @return     {num[]} predicted values based on fit ARMA model
 i.ARMApred:{[mdl;exog;len]
   exog:i.preddatacheck[mdl;exog];
   i.predfunc[mdl;exog;len;i.sngpredARMA]
   }
 
-// Predict a single ARMA value
-i.sngpredARMA:{[params;exog;d;pvals;estresid]
+// @private
+// @kind function
+// @category predictUtility
+// @fileoverview predict a single ARMA value
+// @param params   {num[]} model parameters retrieved from initial fit model
+// @param exog     {tab} exogenous variables, are additional variables which
+//   may be accounted for to improve the model
+// @param dict     {dict} additional information which can dictate the behaviour
+//   when making a prediction
+// @param pvals    {num[]} previously predicted values
+// @param estresid {num[]} estimates of the residual errors
+// @return {num[]} information required for the prediction of a set of ARMA values
+i.sngpredARMA:{[params;exog;dict;pvals;estresid]
   exog:exog count pvals 2;
-  normmat:exog,raze#[neg[d`p];pvals[0]],pvals[1];
-  pred:$[d`tr;params[0]+normmat mmu 1_params;params mmu normmat];
+  normmat:exog,raze#[neg[dict`p];pvals[0]],pvals[1];
+  pred:$[dict`tr;
+    params[0]+normmat mmu 1_params;
+    params mmu normmat
+    ];
   if[count pvals 1;
     estvals:exog,pvals[0];
     pvals[1]:(1_pvals[1]),pred-mmu[estresid;estvals]
-  ];
+    ];
   ((1_pvals[0]),pred;pvals[1];pvals[2],pred)
   }
 
-// Prediction function for AR model
+// @private
+// @kind function
+// @category predictUtility
+// @fileoverview prediction function for AR model
+// @param mdl  {dict} contains all information regarding model parameters and required
+//   residual information
+// @param exog {tab}   Exogenous variables, are additional variables which
+//   may be accounted for to improve the model
+// @param len  {integer} the number of data points to be predicted
+// @return     {num[]} predicted values based on fit AR model
 i.ARpred:{[mdl;exog;len]
   exog:i.preddatacheck[mdl;exog];
   mdl[`pred_dict]:enlist[`p]!enlist count mdl`p_param;
@@ -190,69 +340,128 @@ i.ARpred:{[mdl;exog;len]
 // Predict a single AR value
 i.sngpredAR:i.sngpredARMA
 
+
 // SARIMA model calculation functionality
 
-// Prediction function for SARMA model
+// @private
+// @kind function
+// @category predictUtility
+// @fileoverview prediction function for SARMA model
+// @param mdl  {dict} contains all information regarding model parameters and required
+//   residual information
+// @param exog {tab}   Exogenous variables, are additional variables which
+//   may be accounted for to improve the model
+// @param len  {integer} the number of data points to be predicted
+// @return     {num[]} predicted values based on fit SARMA model
 i.SARMApred:{[mdl;exog;len]
   exog:i.preddatacheck[mdl;exog];
   $[count raze mdl[`pred_dict];
     i.predfunc[mdl;exog;len;i.sngpredSARMA];
     i.ARpred[mdl;exog;len]
-  ]
+    ]
   }
 
-// Predict a single SARMA value
-i.sngpredSARMA:{[params;exog;d;pvals;estresid];
+// @private
+// @kind function
+// @category predictUtility
+// @fileoverview predict a single SARMA value
+// @param params   {num[]} model parameters retrieved from initial fit model
+// @param exog     {tab} exogenous variables, are additional variables which
+//   may be accounted for to improve the model
+// @param dict     {dict} additional information which can dictate the behaviour
+//   when making a prediction
+// @param pvals    {num[]} previously predicted values
+// @param estresid {num[]} estimates of the residual errors
+// @return {num[]} information required for the prediction of SARMA values
+i.sngpredSARMA:{[params;exog;dict;pvals;estresid];
   exog:exog count pvals 2;
-  d,:i.prepSARMA[params;d];
-  pred:i.predSARMA[params;pvals;exog;d];
+  dict,:i.prepSARMA[params;dict];
+  pred:i.predSARMA[params;pvals;exog;dict];
   if[count pvals 1;
-    estvals:exog,neg[d`n]#pvals 0;
+    estvals:exog,neg[dict`n]#pvals 0;
     pvals[1]:(1_pvals[1]),pred-mmu[estresid;estvals]
-  ];
+    ];
   // append new lag values, for next step calculations
   ((1_pvals[0]),pred;pvals[1];pvals[2],pred)
   }
 
-// Calculate required lags for SARMA prediction
-i.prepSARMA:{[params;d]
+// @private
+// @kind function
+// @category predictUtility
+// @fileoverview Calculate new required lags for SARMA prediction surrounding
+//   seasonal components
+// @param params {dict} model parameters retrieved from initial fit model
+// @param dict   {dict} additional information which can dictate the behaviour
+//   in different situations where predictions are being made 
+// @return       {dict} seasonal parameters for prediction in SARMA models
+i.prepSARMA:{[params;dict]
   // 1. Calculate or retrieve all necessary seasonal lagged values for SARMA prediction
   // split up the coefficients to their respective p,q,P,Q parts
-  lag_p:(d[`tr] _params)[til d`p];
-  lag_q:((d[`tr]+d`p)_params)[til d`q];
-  lag_seas_p:((d[`tr]+sum d`q`p)_params)[til count[d`P]];
-  lag_seas_q:neg[count d`Q]#params;
+  lag_p:(dict[`tr] _params)[til d`p];
+  lag_q:((dict[`tr]+dict`p)_params)[til dict`q];
+  lag_seas_p:((dict[`tr]+sum dict`q`p)_params)[til count[dict`P]];
+  lag_seas_q:neg[count dict`Q]#params;
   // Function to extract additional seasonal multiplied coefficients
   // These coefficients multiply p x P vals and q x Q vals
   seas_multi:{[x;y;z;d]$[d[x]&min count d upper x;(*/)flip y cross z;2#0f]};
   // append new lags to original dictionary
-  `add_lag_param`add_resid_param!(seas_multi[`p;lag_p;lag_seas_p;d];seas_multi[`q;lag_q;lag_seas_q;d])
+  dictKeys:`add_lag_param`add_resid_param;
+  dictVals:(seas_multi[`p;lag_p;lag_seas_p;d];seas_multi[`q;lag_q;lag_seas_q;d]);
+  dictKeys!dictVals
   }
 
-// Predict a single SARMA value
-i.predSARMA:{[params;pvals;exog;d]
-  d[`seas_resid_add]:$[(d`q)&min count d`Q;pvals[1]d[`seas_add_Q];2#0f];
-  d[`seas_lag_add]:$[(d`p)&min count d`P;pvals[0]d[`seas_add_P];2#0f];
-  sarmavals:raze#[neg[d`p];pvals[0]],#[neg[d`q];pvals[1]],pvals[0][d[`P]],pvals[1][d[`Q]];
-  d[`norm_mat]:exog,sarmavals;
-  i.evalSARMA[params;d]
+// @private
+// @kind function
+// @category predictUtility
+// @fileoverview predict a single SARMA value
+// @param params   {num[]} model parameters retrieved from initial fit model
+// @param pvals    {num[]} previously predicted values
+// @param exog     {tab} exogenous variables, are additional variables which
+//   may be accounted for to improve the model
+// @param dict     {dict} additional information which can dictate the behaviour
+//   when making a prediction
+// @return {num[]} information required for the prediction of a set of SARMA values
+i.predSARMA:{[params;pvals;exog;dict]
+  dict[`seas_resid_add]:$[dict[`q]&min count dict`Q;
+    pvals[1]dict[`seas_add_Q];
+    2#0f
+    ];
+  dict[`seas_lag_add]:$[dict[`p]&min count dict`P;
+    pvals[0]dict[`seas_add_P];
+    2#0f
+    ];
+  sarmavals:raze#[neg dict`p;pvals 0],#[neg dict`q;pvals 1],pvals[0][dict`P],pvals[1][dict`Q];
+  dict[`norm_mat]:exog,sarmavals;
+  i.evalSARMA[params;dict]
   }
 
-// Evaluate a SARMA value based on provided params/dictionary
-i.evalSARMA:{[params;d]
-  norm_val  :mmu[d`norm_mat;d[`tr] _params];
-  seas_resid:mmu[d`seas_resid_add;d`add_resid_param];
-  seas_lag  :mmu[d`seas_lag_add;d`add_lag_param];
-  $[d`tr;params[0]+;]norm_val+seas_resid+seas_lag
+// @private
+// @kind function
+// @category predictUtility
+// @fileoverview calculate the value of a SARMA prediction based on 
+//   provided params/dictionary
+// @param params {num[]} model parameters retrieved from initial fit model
+// @param dict   {dict} additional information which can dictate the behaviour
+//   when making a prediction
+// @return {num[]} the SARMA prediction values 
+i.evalSARMA:{[params;dict]
+  norm_val  :mmu[dict`norm_mat;dict[`tr] _params];
+  seas_resid:mmu[dict`seas_resid_add;dict`add_resid_param];
+  seas_lag  :mmu[dict`seas_lag_add;dict`add_lag_param];
+  $[dict`tr;params[0]+;]norm_val+seas_resid+seas_lag
   }
 
 
 // Akaike Information Criterion
 
-/* true   = true values
-/* pred   = predicted values
-/* params = set of parameters used in creation of the model
-/. r      > aic score
+// @private
+// @kind function
+// @category aicUtility
+// @fileoverview calculate the Akaike Information Criterion
+// @param true   {num[]} true values
+// @param pred   {num[]} predicted values
+// @param params {num[]} list of the lag/residual parameters
+// @return {float} Akaike Information Criterion score
 i.aicscore:{[true;pred;params]
   // Calculate residual sum of squares, normalised for number of values
   rss:{wsum[x;x]%y}[true-pred;n:count pred];
@@ -263,12 +472,16 @@ i.aicscore:{[true;pred;params]
   $[k<40;aic+(2*k*k+1)%n-k-1;aic]
   }
 
-// Fit a model, predict the test, return AIC score for single set of input params
-/* train  = Training data as a dictionary with endog and exog data
-/* test   = Testing data as a dictionary with endog and exog data
-/* len    = Number of steps in the future to be predicted
-/* params = parameters used in prediction
-/. r      > aic score
+// @private
+// @kind function
+// @category aicUtility
+// @fileoverview Fit a model, predict the test, return AIC score 
+//   for a single set of input params
+// @param train  {dict}    training data as a dictionary with endog and exog data
+// @param test   {dict}    testing data as a dictionary with endog and exog data
+// @param len    {integer} number of steps in the future to be predicted
+// @param params {dict}    parameters used in prediction
+// @return {float} Akaike Information Criterion score
 i.aicfitscore:{[train;test;len;params]
   // Fit an model using the specified parameters
   mdl :ARIMAfit[train`endog;train`exog;;;;]. params`p`d`q`tr;
@@ -279,30 +492,70 @@ i.aicfitscore:{[train;test;len;params]
   }
 
 
+
 // Autocorrelation functionality
 
-// Lagged covariance functionality
-/. r     > covariance between a dataset at time t and t-lag 
-i.lagcov:{[data;lag]cov[neg[lag] _ data;lag _ data]}
+// @private
+// @kind function
+// @category autocorrelationUtility
+// @fileoverview Lagged covariance between a dataset at time t and time t-lag
+// @param data {num[]}   vector on which to calculate the lagged covariance
+// @param lag  {integer} size of the lag to use when calculating covariance
+// @return {float} covariance between a time series and lagged version of itself
+i.lagcov:{[data;lag]
+  cov[neg[lag] _ data;lag _ data]
+  }
 
-// Calculate the autocorrelation between a series and lagged version of itself
-i.acf:{[data;lag]i.lagcov[data;lag]%var data}
+// @private
+// @kind function
+// @category autocorrelationUtility
+// @fileoverview Calculate the autocorrelation between a series
+//   and lagged version of itself
+// @param data {num[]}   vector on which to calculate the lagged covariance
+// @param lag  {integer} size of the lag to use when calculating covariance
+// @return {float} autocorrelation between a time series and lagged version of itself
+i.acf:{[data;lag]
+  i.lagcov[data;lag]%var data
+  }
+
 
 // Matrix creation/manipulation functionality
 
-// Create a lagged matrix with each row containing 'lag' values
-i.lagmat:{[data;lag]data til[count[data]-lag]+\:til lag}
+// @private
+// @kind function
+// @category matrixUtilities
+// @fileoverview create a lagged matrix with each row containing the original
+//   data as its first element and the remaining 'lag' values as additional row
+//   elements
+// @param data {num[]} vector from which to create the lagged matrix
+// @param lag  {integer} size of the lag to use when creating lagged matrix
+// @return {num[][]} a numeric matrix containing original data augmented with
+//   lagged versions of the original dataset.
+i.lagmat:{[data;lag]
+  data til[count[data]-lag]+\:til lag
+  }
 
-// Matrix from table
-i.mat:{[data]flip value flip data}
+// @private
+// @kind function
+// @category matrixUtilities
+// @fileoverview convert a simple table into a matrix
+// @param data {tab} simple table to be converted to a matrix representation
+// @return {num[][]} matrix representation of the input table in the same 'configuration'
+i.mat:{[data]
+  flip value flip data
+  }
 
 
 // Stationarity functionality used to test if datasets are suitable for application of the ARIMA
 // and to facilitate transformation of the data to a more suitable form if relevant
 
-// Function to calculate relevant augmented dickey fuller statistics
-/* dtype = type of the dataset that's being passed to the function
-/. r     > all relevant scores from an augmented dickey fuller test
+// @private
+// @kind function
+// @category stationaryUtilities
+// @fileoverview calculate relevant augmented dickey fuller statistics using python
+// @param data  {dict/tab/num[]} dataset to be testing for stationarity
+// @param dtype {short} type of the dataset that's being passed to the function
+// @return {num[]/num[][]} all relevant scores from an augmented dickey fuller test
 i.statscores:{[data;dtype]
   // Calculate the augmented dickey-fuller scores for a dict/tab/vector input
   scores:{.ml.fresh.i.adfuller[x]`}@'
@@ -313,47 +566,84 @@ i.statscores:{[data;dtype]
   flip{x[0 1],(0.05>x 1),value x 4}each$[dtype in 98 99h;value::;]scores
   }
 
-// Are all of the series provided by a user stationary, determined using augmented dickey fuller?
-// dickey fuller test
-/. r    > boolean indicating if all time series are stationary or not
-i.stat:{[data](all/)i.statscores[data;type data][2]}
+// @private
+// @kind function
+// @category stationaryUtilities
+// @fileoverview Are all of the series provided by a user stationary,
+//   determined using augmented dickey fuller?
+// @param data  {dict/tab/num[]} dataset to be testing for stationarity
+// @return {bool} indicate if all time series are stationary or not
+i.stat:{[data]
+  (all/)i.statscores[data;type data][2]
+  }
 
-// time-series differencing to establish stationarity
-/* d    = order of time series differencing
-/. r    > differenced time series with the first d elements removed
-i.diff:{[data;d]d _d{deltas x}/data}
 
-// Seasonal differencing
-/*m = order of the seasonal component
-/*d = data to apply differencing on
-/.r > seasonal diffenced data
-i.sdiff:{[m;d][m]_ d-(m xprev d)}
+// Differencing utilities
 
-// Revert season differenced data
-/*origd  = original data before being differenced
-/*dfdata = differenced data
-/.r      > the data reverted back to its original format before differencing 
-i.revseasdf:{[origs;dfdata]
-  seasd:origs,dfdata;
-  n:count origs;
+// @private
+// @kind function
+// @category differUtility
+// @fileoverview apply time-series differencing and remove first diff elements
+// @param data  {num[]/num[][]} dataset to apply differencing to
+// @param diff  {integer} order of time series differencing
+// @return {num[]/num[][]} differenced time series
+i.diff:{[data;diff]
+  diffData:diff{deltas x}/data;
+  diff _ diffData
+  }
+
+// @private
+// @kind function
+// @category differUtility
+// @fileoverview apply seasonal differencing and remove first diff elements
+// @param data {num[]/num[][]} dataset to apply differencing to 
+// @param diff  {integer} how many points in the past does data need to be
+//   differenced with respect to
+// @return {num[]/num[][]} differenced time series
+i.sdiff:{[data;diff]
+  diffData:data - xprev[data;diff];;
+  diff _ diffData
+  }
+
+// @private
+// @kind function
+// @category differUtility
+// @fileoverview revert seasonally differenced data to correct representation
+// @param origd  {num[]} set of original dataset saved before being differenced
+// @param dfdata {num[]} differenced dataset
+// @return {num[]} the data reverted back to its original format before differencing 
+i.revseasdf:{[origd;dfdata]
+  seasd:origd,dfdata;
+  n:count origd;
   [n]_first{x[1]<y}[;count[seasd]]{[n;sdi]
-  sd:sdi[0];i:sdi[1];
+  sd:sdi[0];
+  i:sdi[1];
   sd[i]:sd[i-n]+sd[i];
   (sd;i+1)}[n]/(seasd;n)
   }
 
-// Error calls
+
+// Error flags
+
+// @private
+// Functions used to flag errors
 i.err.steps:{'`$"Exog length not long enough"}
 i.err.stat:{'`$"Time series not stationary, try another value of d"}
 i.err.len:{'`$"Endog length less than length"}
 i.err.exog:{'`$"Test exog length does not match train exog length"}
 
 
-// New utilities for data checking 
-// The following utility is used in each of the functions that are provided
-// endog = endogenous dataset (floating point vector?)
-// exog  = exogenous input (table/matrix)
-// bool  = does a check on the exogenous variables need to be completed to return as a matrix?
+// Checks on suitability of datasets for application of time-series analysis
+
+// @private
+// @kind function
+// @category dataCheckUtility
+// @fileoverview check that the lengths of endogenous and exogenous data when
+//   fitting the model are consistent, in the case they are not flag an error,
+//   ensure that the exogenous data is returned as a matrix
+// @param endog {num[]} endogenous dataset
+// @param exog  {tab/num[][]} exogenous dataset
+// @return {num[][]} exogenous data as a matrix
 i.fitdatacheck:{[endog;exog]
   // Accept null as input
   if[exog~(::);exog:()];
@@ -363,6 +653,16 @@ i.fitdatacheck:{[endog;exog]
   $[98h~type exog;:"f"$i.mat exog;:exog];
   }
 
+// @private
+// @kind function
+// @category dataCheckUtility
+// @fileoverview check that the exogenous data match the expected input when
+//   predicting data using a the model are consistent, in the case they are not,
+//   flag an error ensure that the exogenous data is returned as a matrix
+// @param mdl {dict} dictionary containing required information to predict
+//   future values
+// @param exog  {tab/num[][]} exogenous dataset
+// @return {num[][]} exogenous data as a matrix
 i.preddatacheck:{[mdl;exog]
   // allow null to be provided as exogenous variable
   if[exog~(::);exog:()];
@@ -372,11 +672,15 @@ i.preddatacheck:{[mdl;exog]
   $[98h~type exog;"f"$i.mat exog;exog]
   }
 
-// Differencing error checking and application
-// endog = endogenous dataset
-// diff  = non seasonal differencing component (integer)
-// D = is seasonal differencing component
-// m = order of seasonal differencing
+// @private
+// @kind function
+// @category dataCheckUtility
+// @fileoverview Apply seasonal and non-seasonal time-series differencing,
+// error checking stationality of the dataset following application of differencing
+// @param endog {num[]}   endogenous dataset
+// @param diff  {integer} non seasonal differencing component (integer)
+// @param sdict {dict}    dictionary containing relevant seasonal differencing components
+// @return {num[]} Seasonal and non-seasonally differenced stationary time-series
 i.differ:{[endog;d;s]
   // Apply non seasonal differencing if appropriate (handling of AR/ARMA)
   if[s~()!();s[`D]:0b];
@@ -388,3 +692,50 @@ i.differ:{[endog;d;s]
   // Return integrated data
   I
   }
+
+
+// Feature extraction utilities
+
+// @private
+// @kind function
+// @category featureExtractUtilities
+// @fileoverview Apply a user defined unary function across a dataset 
+//   using a sliding window of specified length
+//   Note: this is a modified version of a function provided in qidioms
+//   using floating point windows instead
+//   of long windows to increase the diversity of functions that can be applied
+// @param func {lambda}  unary function to be applied with the data in the sliding window
+// @param win  {integer} size of the sliding window 
+// @param data {num[]}   data on which the sliding window and associated function
+//   are to be applied
+// @return {num[]} result of the application of the function on each of the sliding window
+//   components over the data vector
+i.swin:{[func;win;data]
+  func each{ 1_x,y }\[win#0f;data]
+  }
+
+
+// Plotting utilities 
+
+// @private
+// @kind function
+// @category plottingUtility
+// @fileoverview Plotting function used in the creation of plots
+//   for both full and partial autocorrelation graphics
+// @param data  {num[]} x-axis original dataset
+// @param vals  {num[]} calculated values
+// @param m     {num[]} bar plot indices
+// @param title {string} title to be given to the plot
+// @return {graph} presents a plot to screen associated with relevant analysis
+i.plotfn:{[data;vals;m;title]
+  plt:.p.import[`matplotlib.pyplot];
+  conf:10#1.95%sqrt count data;
+  plt[`:bar][m;vals;`width pykw 0.5];
+  cfgkeys:`linewidth`linestyle`color`label;
+  cfgvals:3,`dashed`red`conf_interval;
+  plt[`:plot][m;conf;pykwargs cfgkeys!cfgvals];
+  plt[`:legend][];
+  plt[`:xlabel][`lags];
+  plt[`:ylabel][`acf];
+  plt[`:title][title];
+  plt[`:show][];}
