@@ -738,7 +738,7 @@ i.differ:{[endog;d;s]
 //   are to be applied
 // @return {num[]} result of the application of the function on each of the sliding window
 //   components over the data vector
-i.swin:{[func;win;data]
+i.slidingWindowFunction:{[func;win;data]
   func each{ 1_x,y }\[win#0f;data]
   }
 

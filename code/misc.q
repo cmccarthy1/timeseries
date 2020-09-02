@@ -66,7 +66,7 @@ tsWindow:{[tab;col_names;funcs;wins]
   // exist they don't jeopardize parsing of select statements.
   win_cols:`$ssr[;".";""]each sv["_"]each string uni_combs;
   // values from applied functions over associated windows
-  win_vals:{i.swin[get string y 0;y 1;x y 2]}[tab]each uni_combs;
+  win_vals:{i.slidingWindowFunction[get string y 0;y 1;x y 2]}[tab]each uni_combs;
   max[wins]_tab,'flip win_cols!win_vals
   }
 
