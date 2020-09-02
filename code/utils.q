@@ -245,6 +245,17 @@ i.SARMAparams:{[endog;coeff;params;errors;lags]
 // Prediction function utilities
 
 // @private
+// @kind list
+// @category predictUtility
+// @fileoverview lists of keys which must be present in each application of the
+//   various prediction functions to ensure the application of prediction is valid
+i.ARlist    :`params`tr_param`exog_param`p_param`lags
+i.ARMAlist  :i.ARlist,`q_param`resid`estresid`pred_dict
+i.ARIMAlist :i.ARMAlist,`origd
+i.SARIMAlist:i.ARIMAlist,`origs`P_param`Q_param
+i.ARCHlist  :`params`tr_param`p_param`resid
+
+// @private
 // @kind function
 // @category predictUtility
 // @fileoverview predict a set number of values based on a fit model AR/ARMA/SARMA
@@ -382,7 +393,7 @@ i.sngpredSARMA:{[params;exog;dict;pvals;estresid];
 i.prepSARMA:{[params;dict]
   // 1. Calculate or retrieve all necessary seasonal lagged values for SARMA prediction
   // split up the coefficients to their respective p,q,P,Q parts
-  lag_p:(dict[`tr] _params)[til d`p];
+  lag_p:(dict[`tr] _params)[til dict`p];
   lag_q:((dict[`tr]+dict`p)_params)[til dict`q];
   lag_seas_p:((dict[`tr]+sum dict`q`p)_params)[til count[dict`P]];
   lag_seas_q:neg[count dict`Q]#params;
@@ -391,7 +402,7 @@ i.prepSARMA:{[params;dict]
   seas_multi:{[x;y;z;d]$[d[x]&min count d upper x;(*/)flip y cross z;2#0f]};
   // append new lags to original dictionary
   dictKeys:`add_lag_param`add_resid_param;
-  dictVals:(seas_multi[`p;lag_p;lag_seas_p;d];seas_multi[`q;lag_q;lag_seas_q;d]);
+  dictVals:(seas_multi[`p;lag_p;lag_seas_p;dict];seas_multi[`q;lag_q;lag_seas_q;dict]);
   dictKeys!dictVals
   }
 
@@ -487,7 +498,6 @@ i.aicfitscore:{[train;test;len;params]
   // Score the predictions
   i.aicscore[len#test`endog;pred;params]
   }
-
 
 
 // Autocorrelation functionality
@@ -593,12 +603,12 @@ i.diff:{[data;diff]
 // @kind function
 // @category differUtility
 // @fileoverview apply seasonal differencing and remove first diff elements
-// @param data {num[]/num[][]} dataset to apply differencing to 
 // @param diff  {integer} how many points in the past does data need to be
 //   differenced with respect to
+// @param data {num[]/num[][]} dataset to apply differencing to 
 // @return {num[]/num[][]} differenced time series
-i.sdiff:{[data;diff]
-  diffData:data - xprev[data;diff];;
+i.sdiff:{[diff;data]
+  diffData:data - xprev[diff;data];
   diff _ diffData
   }
 
@@ -650,6 +660,24 @@ i.fitdatacheck:{[endog;exog]
   $[98h~type exog;:"f"$i.mat exog;:exog];
   }
 
+// @private
+// @kind function
+// @category dataCheckUtility
+// @fileoverview ensure that all required keys are present for the application of
+//   the various prediction functions
+// @param dict    {dict}   the dictionary which is to be validated
+// @param keyvals {sym[]}  list of the keys which should be present in order to
+//   fully execute the logic of the function
+// @param input   {string} name of the input dictionary which issue is
+//   highlighted in
+// @return {err/(::)} will error on incorrect inputs otherwise run silently
+i.dictCheck:{[dict;keyvals;input]
+  validKeys:keyvals in key dict;
+  if[not all validKeys;
+    invalid:sv[", ";string[keyvals]where not validKeys];
+    '"The following required dictionary keys for '",input,"' are not provided: ",invalid];
+  }
+ 
 // @private
 // @kind function
 // @category dataCheckUtility

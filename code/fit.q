@@ -91,6 +91,7 @@ ARIMAfit:{[endog;exog;lags;diff;resid;trend]
 // @return {dict} All information required to use a fit model for the prediction of
 //   new values based on incoming data
 SARIMAfit:{[endog;exog;lags;diff;resid;trend;seas]
+  i.dictCheck[seas;`P`Q`D`m;"seas"];
   // Apply error checking (exogenous data not converted to matrix?)
   exog:i.fitdatacheck[endog;exog];
   // Apply appropriate seasonal+non seasonal differencing
