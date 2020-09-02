@@ -665,17 +665,19 @@ i.fitdatacheck:{[endog;exog]
 // @category dataCheckUtility
 // @fileoverview ensure that all required keys are present for the application of
 //   the various prediction functions
-// @param dict    {dict}   the dictionary which is to be validated
+// @param dict    {dict}   the dictionary parameter to be validated
 // @param keyvals {sym[]}  list of the keys which should be present in order to
 //   fully execute the logic of the function
 // @param input   {string} name of the input dictionary which issue is
 //   highlighted in
 // @return {err/(::)} will error on incorrect inputs otherwise run silently
 i.dictCheck:{[dict;keyvals;input]
+  if[99h<>type dict;'input," must be a dictionary input"];
   validKeys:keyvals in key dict;
   if[not all validKeys;
     invalid:sv[", ";string[keyvals]where not validKeys];
-    '"The following required dictionary keys for '",input,"' are not provided: ",invalid];
+    '"The following required dictionary keys for '",input,"' are not provided: ",invalid
+    ];
   }
  
 // @private

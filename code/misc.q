@@ -32,6 +32,8 @@ stationary:{[dset]
 // @param params {dict} parameter sets to fit ARIMA model with 
 // @return {dict} parameter set which produced the lowest AIC score
 aicparam:{[train;test;len;params]
+  i.dictCheck[;`endog`exog;]'[(train;test);("train";"test")];
+  i.dictCheck[params;`p`d`q`tr;"params"];
   // get aic scores for each set of params
   scores:i.aicfitscore[train;test;len;]each flip params;
   // return best value
