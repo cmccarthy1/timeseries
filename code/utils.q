@@ -1,21 +1,6 @@
-// The following are updated versions of the timeseries utils provided in the original code base,
-// some of these changes may be slightly less efficient than the original versions
-// but in the cases where there has been a performance hit this has been done for the 
-// sake of code scalability/readability/flexibility with AutoML/Analyst and support in mind.
-
-// The following are a number of variable definitions that occur throughout this
-// file and are provided at this point to limit repetition 
-/* data = dataset on which functionality is to be applied (vector/table/dict etc)
-/* lag  = long indicating the number of steps to 'lag' a dataset
-
 \d .tm
 
 // AR/ARMA/SARMA model utilities
-/* endog = endogenous variable (time-series)
-/* exog  = exogenous variables (additional variables)
-/* d     = dictionary containing p,q,tr and seasonal P Q values
-/* typ   = typ of model, ARMA or SARMA
-
 
 // @private
 // @kind function
@@ -121,7 +106,7 @@ i.durbin_lev:{[data;lags]
   vec:(1+lags)#0f;
   mat[1;1]:i.acf[data;1];
   vec[1]  :var[data]*(1-xexp[mat[1;1];2]);
-  reverse 1_last first(p-1){[data;d]
+  reverse 1_last first(lags-1){[data;d]
     mat:d[0];vec:d[1];n:d[2];
     k:n+1;
     mat[k;k]:(i.lagcov[data;k]-sum mat[n;1+til n]mmu i.lagcov[data]each k-1+til n)%vec[n];
@@ -451,6 +436,18 @@ i.evalSARMA:{[params;dict]
   $[dict`tr;params[0]+;]norm_val+seas_resid+seas_lag
   }
 
+
+// @private
+// @kind function
+// @category predictUtility
+// @fileoverview calculate a single ARCH value, 
+// @param params   {dict}   model parameters retrieved from initial fit model
+// @param pvals    {num[]}  list of values over which predictions are composed
+// @return {num[]} list containing residuals and predicted values
+i.sngpredARCH:{[params;pvals]
+  predict:params[0]+pvals[0] mmu 1_params;
+  ((1_pvals 0),predict;pvals[1],predict)
+  }
 
 // Akaike Information Criterion
 

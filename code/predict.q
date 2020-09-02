@@ -89,8 +89,5 @@ SARIMApred:{[mdl;exog;len]
 /. r    > list of predicted values
 ARCHpred:{[mdl;len]
   // predict and return future values
-  last{x>count y 1}[len;]{[params;d]
-    preds:params[0]+d[0] mmu 1_params;
-    ((1_d[0]),preds;d[1],preds)
-    }[mdl`params]/(mdl`resid;())
+  last{x>count y 1}[len;]i.sngpredARCH[mdl`params]/(mdl`resid;())
   }
