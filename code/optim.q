@@ -302,10 +302,18 @@ i.wolfe_crit_2:{[d]
   }
 
 // Zoom criteria function https://www.csie.ntu.edu.tw/~r97002/temp/num_optimization.pdf pg 61
-i.quad_crit:  {[fnd_min;h_l;cchk](fnd_min>h_l[`low]-cchk)|fnd_min<h_l[`high]+cchk}
-i.zoom_crit_1:{[phi0;derphi0;phi_min;fnd_min;d](phi_min>phi0+c1*fnd_min*derphi0)|phi_min>=d[`phi_lo]};
-i.zoom_crit_2:{[derphi0;derphi_min]abs(derphi_min`derval)<=neg[c2*derphi0]}
-i.zoom_crit_3:{[derphi_min;dalpha](derphi_min[`derval]*dalpha)>=0}
+i.quad_crit:  {[fnd_min;h_l;cchk]
+  (fnd_min>h_l[`low]-cchk)|fnd_min<h_l[`high]+cchk
+  }
+i.zoom_crit_1:{[phi0;derphi0;phi_min;fnd_min;d]
+  (phi_min>phi0+c1*fnd_min*derphi0)|phi_min>=d[`phi_lo]
+  }
+i.zoom_crit_2:{[derphi0;derphi_min]
+  abs(derphi_min`derval)<=neg[c2*derphi0]
+  }
+i.zoom_crit_3:{[derphi_min;dalpha]
+  (derphi_min[`derval]*dalpha)>=0
+  }
    
    
 // Zoom dictionary 

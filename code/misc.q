@@ -12,13 +12,16 @@
 //   in each case be numeric data types.
 // @return {keytab} informative outputs from the python adfuller test indicating
 //   the stationality of each vector entry of the relevant dataset
-stationary:{[dset]
+stationality:{[dset]
   dtype:type dset;
   // Names to be provided to form the key for the return table
-  keynames:$[99h=dtype;key dset;98h=dtype;cols dset;enlist`data];
+  keynames:$[99h=dtype;key dset;
+    98h=dtype;cols dset;
+    enlist`data
+    ];
   // Column names associated with the returns from the augmented dickey fuller test
   dcols:`ADFstat`pvalue`stationary,`$raze each"CriticalValue_",/:string(1;5;10),\:"%";
-  scores:i.statscores[dset;dtype];
+  scores:i.stationaryScores[dset;dtype];
   keynames!flip dcols!scores
   }
 
@@ -31,11 +34,11 @@ stationary:{[dset]
 // @param len    {integer} number of steps forward to predict
 // @param params {dict} parameter sets to fit ARIMA model with 
 // @return {dict} parameter set which produced the lowest AIC score
-aicparam:{[train;test;len;params]
+aicParam:{[train;test;len;params]
   i.dictCheck[;`endog`exog;]'[(train;test);("train";"test")];
   i.dictCheck[params;`p`d`q`tr;"params"];
   // get aic scores for each set of params
-  scores:i.aicfitscore[train;test;len;]each flip params;
+  scores:i.aicFitScore[train;test;len;]each flip params;
   // return best value
   bestScore:min scores;
   scoreEntry:enlist[`score]!enlist bestScore;
@@ -56,7 +59,7 @@ aicparam:{[train;test;len;params]
 // @return         {tab} table with functions applied on specified columns over 
 //   appropriate windows remove the first max[wins] columns as these are produced
 //   with insufficient information to be deemed accurate
-tswindow:{[tab;col_names;funcs;wins]
+tsWindow:{[tab;col_names;funcs;wins]
   // unique combinations of columns/windows and functions to be applied to the dataset
   uni_combs:(cross/)(funcs;wins;col_names);
   // column names for windowed functions (remove ".") to ensure that if namespaced columns
@@ -78,7 +81,7 @@ tswindow:{[tab;col_names;funcs;wins]
 // @return         {tab} table with columns added associated with the specied lagged
 //   values, remove the first max[lags] rows as these are produced with insufficient 
 //   information to be deemed accurate
-tslag:{[tab;col_names;lags]
+tsLag:{[tab;col_names;lags]
   if[1=count col_names;col_names,:()];
   if[1=count lags;lags,:()];
   lag_names:`$raze string[col_names],/:\:"_xprev_",/:string lags;
@@ -94,9 +97,9 @@ tslag:{[tab;col_names;lags]
 // @fileoverview Plot and display an autocorrelation plot
 // @param data {num[]} dataset from which to generate the autocorrelation plot
 // @return {graph} display to standard out the autocorrelation bar plot
-acfplot:{[data]
-  acf:i.acf[data;]each m:1_til 11&count[data];
-  i.plotfn[data;acf;m;"AutoCorrelation"];
+acfPlot:{[data]
+  acf:i.autoCorrFunction[data;]each m:1_til 11&count[data];
+  i.plotFunction[data;acf;m;"AutoCorrelation"];
   }
 
 // @kind function
@@ -104,8 +107,8 @@ acfplot:{[data]
 // @fileoverview Plot and display an autocorrelation plot
 // @param data {num[]} dataset from which to generate the partial autocorrelation plot
 // @return {graph} display to standard out the partial autocorrelation bar plot
-pacfplot:{[data]
+pacfPlot:{[data]
   pacf:.ml.fresh.i.pacf[data;neg[1]+m:11&count data]`;
-  i.plotfn[data;1_pacf;1_til m;"Partial AutoCorrelation"];
+  i.plotFunction[data;1_pacf;1_til m;"Partial AutoCorrelation"];
   }
 

@@ -10,13 +10,13 @@
 //   required for application of model prediction 
 // @param len  {integer} number of values to be predicted
 // @return     {float[]} list of predicted values
-ARpred:{[mdl;exog;len]
-  i.dictCheck[mdl;i.ARlist;"mdl"];
-  exog:i.preddatacheck[mdl;exog];
+AR.predict:{[mdl;exog;len]
+  i.dictCheck[mdl;i.AR.keyList;"mdl"];
+  exog:i.predDataCheck[mdl;exog];
   mdl[`pred_dict]:enlist[`p]!enlist count mdl`p_param;
   mdl[`estresid]:();
   mdl[`resid]:();
-  i.predfunc[mdl;exog;len;i.sngpredAR]
+  i.predictFunction[mdl;exog;len;i.AR.singlePredict]
   }
 
 // @kind function
@@ -29,10 +29,10 @@ ARpred:{[mdl;exog;len]
 // @return     {float[]} list of predicted values
 // Predict future data using an ARMA model
 /. r    > list of predicted values
-ARMApred:{[mdl;exog;len]
-  i.dictCheck[mdl;i.ARMAlist;"mdl"];
-  exog:i.preddatacheck[mdl;exog];
-  i.predfunc[mdl;exog;len;i.sngpredARMA]
+ARMA.predict:{[mdl;exog;len]
+  i.dictCheck[mdl;i.ARMA.keyList;"mdl"];
+  exog:i.predDataCheck[mdl;exog];
+  i.predictFunction[mdl;exog;len;i.ARMA.singlePredict]
   }
 
 // @kind function
@@ -44,11 +44,11 @@ ARMApred:{[mdl;exog;len]
 //   required for application of model prediction 
 // @param len  {integer} number of values to be predicted
 // @return     {float[]} list of predicted values
-ARIMApred:{[mdl;exog;len]
-  i.dictCheck[mdl;i.ARIMAlist;"mdl"];
-  exog:i.preddatacheck[mdl;exog];
+ARIMA.predict:{[mdl;exog;len]
+  i.dictCheck[mdl;i.ARIMA.keyList;"mdl"];
+  exog:i.predDataCheck[mdl;exog];
   // Calculate predictions not accounting for differencing
-  pred:i.predfunc[mdl;exog;len;i.sngpredARMA];
+  pred:i.predictFunction[mdl;exog;len;i.ARMA.singlePredict];
   dval:count mdl`origd;
   // Revert data to correct scale (remove differencing if previously applied)
   $[dval;dval _dval{sums x}/mdl[`origd],pred;pred]
@@ -63,18 +63,18 @@ ARIMApred:{[mdl;exog;len]
 //   required for application of model prediction 
 // @param len  {integer} number of values to be predicted
 // @return     {float[]} list of predicted values
-SARIMApred:{[mdl;exog;len]
-  i.dictCheck[mdl;i.SARIMAlist;"mdl"];
-  exog:i.preddatacheck[mdl;exog];
+SARIMA.predict:{[mdl;exog;len]
+  i.dictCheck[mdl;i.SARIMA.keyList;"mdl"];
+  exog:i.predDataCheck[mdl;exog];
   // Calculate predictions not accounting for differencing
   preds:$[count raze mdl[`pred_dict];
-    i.predfunc[mdl;exog;len;i.sngpredSARMA];
-    i.ARpred[mdl;exog;len]
+    i.predictFunction[mdl;exog;len;i.SARMA.singlePredict];
+    i.AR.predict[mdl;exog;len]
     ];
   // Order of seasonal differencing originally applied
   sval:count mdl`origs;
   // if seasonal differenced, revert to original
-  if[sval;preds:i.revseasdf[mdl[`origs];preds]];
+  if[sval;preds:i.reverseSeasonDiff[mdl[`origs];preds]];
   // Order of differencing originally applied
   dval:count mdl`origd;
   // Revert data to correct scale (remove differencing if previously applied)
@@ -91,8 +91,8 @@ SARIMApred:{[mdl;exog;len]
 // @return     {float[]} list of predicted values
 // Predict future volatility using an ARCH model
 /. r    > list of predicted values
-ARCHpred:{[mdl;len]
-  i.dictCheck[mdl;i.ARCHlist;"mdl"];
+ARCH.predict:{[mdl;len]
+  i.dictCheck[mdl;i.ARCH.keyList;"mdl"];
   // predict and return future values
-  last{x>count y 1}[len;]i.sngpredARCH[mdl`params]/(mdl`resid;())
+  last{x>count y 1}[len;]i.ARCH.singlePredict[mdl`params]/(mdl`resid;())
   }

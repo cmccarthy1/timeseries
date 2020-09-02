@@ -13,14 +13,14 @@
 // @param trend {boolean} Is a trend line to be accounted for in fitting of model
 // @return {dict} All information required to use a fit model for the prediction of
 //   new values based on incoming data
-ARfit:{[endog;exog;lags;trend]
-  exog:i.fitdatacheck[endog;exog];
+AR.fit:{[endog;exog;lags;trend]
+  exog:i.fitDataCheck[endog;exog];
   // AR models require no non seasonal differencing steps
   i.differ[endog;0;()!()];
   // Estimate coefficients
   coeff:$[sum trend,count[exog];
-    i.estparam[endog;exog;endog;`p`q`tr!lags,0,trend];
-    i.durbin_lev[endog;lags]
+    i.estimateParams[endog;exog;endog;`p`q`tr!lags,0,trend];
+    i.durbinLevinson[endog;lags]
     ];
   // Get lagged values needed for future predictions
   lagvals:neg[lags]#endog;
@@ -42,11 +42,11 @@ ARfit:{[endog;exog;lags;trend]
 // @param trend {boolean} Is a trend line to be accounted for in fitting of model
 // @return {dict} All information required to use a fit model for the prediction of
 //   new values based on incoming data
-ARMAfit:{[endog;exog;lags;resid;trend]
+ARMA.fit:{[endog;exog;lags;resid;trend]
   $[resid~0;
     // if q = 0 then model is an AR model
-    ARfit[endog;exog;lags;trend],`q_param`resid!(();());
-    i.ARMAmodel[endog;exog;`p`q`tr!lags,resid,trend]]
+    AR.fit[endog;exog;lags;trend],`q_param`resid!(();());
+    i.ARMA.model[endog;exog;`p`q`tr!lags,resid,trend]]
   }
 
 // @kind function
@@ -62,12 +62,12 @@ ARMAfit:{[endog;exog;lags;resid;trend]
 // @param trend {boolean} Is a trend line to be accounted for in fitting of model
 // @return {dict} All information required to use a fit model for the prediction of
 //   new values based on incoming data
-ARIMAfit:{[endog;exog;lags;diff;resid;trend]
-  exog:i.fitdatacheck[endog;exog];
+ARIMA.fit:{[endog;exog;lags;diff;resid;trend]
+  exog:i.fitDataCheck[endog;exog];
   // Apply integration (non seasonal)
   I:i.differ[endog;diff;()!()];
   // Fit an ARMA model on the differenced time series
-  mdl:ARMAfit[I;diff _exog;lags;resid;trend];
+  mdl:ARMA.fit[I;diff _exog;lags;resid;trend];
   // Retrieve the original data to be used when fitting on new data
   origData:neg[diff]#endog;
   // Produce the relevant differenced data for use in future predictions
@@ -90,10 +90,10 @@ ARIMAfit:{[endog;exog;lags;diff;resid;trend]
 // @param seas  {dict}    Is a dictionary containing required seasonal components
 // @return {dict} All information required to use a fit model for the prediction of
 //   new values based on incoming data
-SARIMAfit:{[endog;exog;lags;diff;resid;trend;seas]
+SARIMA.fit:{[endog;exog;lags;diff;resid;trend;seas]
   i.dictCheck[seas;`P`Q`D`m;"seas"];
   // Apply error checking (exogenous data not converted to matrix?)
-  exog:i.fitdatacheck[endog;exog];
+  exog:i.fitDataCheck[endog;exog];
   // Apply appropriate seasonal+non seasonal differencing
   I:i.differ[endog;diff;seas];
   // Create dictionary with p,q and seasonal components
@@ -103,12 +103,12 @@ SARIMAfit:{[endog;exog;lags;diff;resid;trend;seas]
   // Generate data for regenerate data following differencing
   origDiffSeason:`origd`origs!(diff{deltas x}/neg[diff]#endog;neg[prd seas`D`m]#endog);
   // Apply SARMA model and postpend differenced original data
-  i.SARMAmodel[I;exog;dict],origDiffSeason
+  i.SARMA.model[I;exog;dict],origDiffSeason
   }
 
 // @kind function
 // @category modelFit
-// @fileoverview Fit an AutoRegressive Condition Heteroscedasticity model (ARCH)
+// @fileoverview Fit an AutoRegressive Conditional Heteroscedasticity model (ARCH)
 // @param endog {num[]} Endogenous variable (time-series) from which to build a model
 //   this is the target variable from which a value is to be predicted
 // @param exog  {tab/num[][]/(::)} Exogenous variables, are additional variables which
@@ -118,12 +118,12 @@ SARIMAfit:{[endog;exog;lags;diff;resid;trend;seas]
 //   new values based on incoming data
 // Fit an ARCH model
 /. r    > the model parameters and data needed for future predictions
-ARCHfit:{[endog;exog;lags]
-  exog:i.fitdatacheck[endog;exog];
+ARCH.fit:{[endog;exog;lags]
+  exog:i.fitDataCheck[endog;exog];
   // Retrieve squared error
-  sqer:err*err:i.esterrs[endog;exog;lags]`err;
+  sqer:err*err:i.estimateErrors[endog;exog;lags]`err;
   // Using the resid errorrs calculate coefficients
-  coeff:i.estparam[sqer;();sqer;`p`q`tr!lags,0,1b];
+  coeff:i.estimateParams[sqer;();sqer;`p`q`tr!lags,0,1b];
   // Get lagged values needed for future predictions
   resid:neg[lags]#sqer;
   // return dictionary with required info for predictions
