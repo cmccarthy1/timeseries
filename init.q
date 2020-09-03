@@ -1,3 +1,9 @@
-.tm.loadfile`:code/arimamdl.q
-.tm.loadfile`:code/utils.q
-.tm.loadfile`:code/graphics.q
+\l ml/ml.q
+.ml.loadfile`:init.q
+
+\d .tm
+loadfile`:code/utils.q
+loadfile`:code/optim.q
+loadfile`:code/fit.q
+loadfile`:code/predict.q
+loadfile`:code/misc.q
