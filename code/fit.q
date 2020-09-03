@@ -127,8 +127,8 @@ ARCH.fit:{[endog;exog;lags]
   // Get lagged values needed for future predictions
   resid:neg[lags]#sqer;
   // return dictionary with required info for predictions
-  keyvals:`params`tr_param`p_param`resid;
+  keyVals:`params`tr_param`p_param`resid;
   params:(coeff;coeff[0];1_coeff;resid);
-  keyvals!params
+  keyVals!params
   }
 
