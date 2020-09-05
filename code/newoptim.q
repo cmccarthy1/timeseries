@@ -7,20 +7,16 @@
 // optimization function based off scipy https://docs.scipy.org/doc/scipy/reference/optimize.minimize-bfgs.html#optimize-minimize-bfgs
 // Derivation of Formula http://www.bioinfo.org.cn/~wangchao/maa/Numerical_Optimization.pdf
 
-// epsilon value for gradient fnc hardcoded for the moment,
-// potentially should be changable by the user in the future
-eps:1.49e-8;
-
 funcEval:{[f;x0;args]
   $[any args~/:((::);());f x0;
     99h=type args;f[x0]. value args;
     '"args must be a dictionary, (::) or ()"
-   ]
+  ]
   }
 
 updDefault:{[params]
-  returnKeys:`norm`maxiter`gtol`geps`display`stepsize`c1`c2;
-  returnVals:(0W;0W;1e-4;1.49e-8;0b;0W;1e-4;0.9);
+  returnKeys:`norm`optimIter`gtol`geps`stepSize`c1`c2`wolfeIter`zoomIter`display;
+  returnVals:(0W;0W;1e-4;1.49e-8;0w;1e-4;0.9;10;10;0b);
   returnDict:returnKeys!returnVals;
   if[99h<>type params;params:()!()];
   returnDict,params
@@ -34,11 +30,18 @@ vecNorm:{[vec;ord]
   ]
   }
 
-stopCondition:{[dict;params]
+stopOptimize:{[dict;params]
   (dict[`fk] < dict`prev_fk) & (not any null dict`xk) & 
-  (params[`maxiter] > dict`idx ) & (params[`gtol] < dict`gnorm)
+  (params[`optimIter] > dict`idx ) & (params[`gtol] < dict`gnorm)
   }
 
+stopWolfe:{[dict;params]
+  dict[`idx] < params`wolfeIter
+  }
+
+stopZoom:{[dict;params]
+  dict[`idx] < params`zoomIter
+  }
 
 i.gradEval:{[fk;func;xk;args;eps;idx]
   if[(::)~fk;fk:funcEval[func;xk;args]];
@@ -59,7 +62,7 @@ i.phi:{[f;pk;alpha;xk;args]
   funcEval[f;xk;args]
   }
 
-// derivative of function with step value included
+// derivative of function with step value applied
 /* f     = function to be minimized
 /* pk    = step direction
 /* alpha = step applied
@@ -177,127 +180,127 @@ i.wolfeSearch:{[fk;prev_fk;gk;pk;func;xk;args;params]
   // calculate the derivative at that phi0
   derphi0:gk mmu pk;
   wolfeDict[`derphi_a0`derphi0]:2#derphi0;
-  // the new alpha value should be between 0 and 1
-  alphaval:1.01*2*(fk - prev_fk)%derphi0;
-  // new alpha
-  wolfeDict[`alpha1]:$[(alphaval>0) & (alphaval<1);alphaval;1];
-  // phi value at alpha1
+  // calculate step size this should be 0 < x < 1 
+  // with min(x;maxstepsize) or 1f otherwise
+  alpha:1.01*2*(fk - prev_fk)%derphi0;
+  alphaVal:$[alpha within 0 1f;min(alpha;params`stepSize);1f];
+  wolfeDict[`alpha1]:alphaVal;
+  // function value at alpha1
   wolfeDict[`phi_a1]:phiFunc wolfeDict`alpha1;
-  // set up phi0 and derphi0
-  // repeat until wolfe criteria is reached or max iteration
+  // repeat until wolfe criteria is reached or max iterations have been done
   // to get new alpha, phi and derphi values
-  upd_d:{x[`idx]<y}[;10]i.scalarWolfe[derphiFunc;phiFunc;pk;params]/wolfeDict;
+  wolfeDict:wolfeStop[;params]i.scalarWolfe[derphiFunc;phiFunc;pk;params]/wolfeDict;
   // if the line search did not converge, use last alpha , phi and derphi
-  $[not any null raze upd_d[`alpha_star`phi_star`derphi_star];
-    upd_d[`alpha_star`phi_star`derphi_star];
-    upd_d[`alpha1`phi_a1`derphi_a0_fin]]
- }
+  $[not any null raze wolfeDict[`alpha_star`phi_star`derphi_star];
+    wolfeDict[`alpha_star`phi_star`derphi_star];
+    wolfeDict[`alpha1`phi_a1`derphi_a0_fin]
+  ]
+  }
 
 // Scalar search function search for Wolfe conditions
 // https://github.com/scipy/scipy/blob/v1.5.0/scipy/optimize/linesearch.py#L338
 // This functions defines what are the "brackets" in between which the step function can be found.
 // when optimal "bracket" is found, zoom in on area to find optimal
-/* derphi_fnc = derivative fnc
-/* phi_fnc    = phi function 
+/* derphiFunc = derivative fnc
+/* phiFunc    = phi function 
 /* d          = dictionary with Wolfe values
 /. r          > returns dictionary of new alpha, fk and derivative
-i.scalarWolfe:{[derphiFunc;phiFunc;pk;params;d]
+i.scalarWolfe:{[derphiFunc;phiFunc;pk;params;wolfeDict]
   // set up zoom function constant params
-  zoom_setup:i.zoom_fnc[derphiFunc;phiFunc;;;params]. d`phi0`derphi0;
+  zoom_setup:i.zoomFunc[derphiFunc;phiFunc;;;params]. wolfeDict`phi0`derphi0;
   // if criteria 1, zoom and break loop
-  if[i.wolfeCriteria1[d;params];
-    d[`idx]:0w;
-    d[i.new_zoom]:zoom_setup d`alpha0`alpha1`phi_a0`phi_a1`derphi_a0;
-    :d
-    ];
-  // calculate the derivative
-  derphiCalc:derphiFunc d`alpha1;
-  // update the new derivative fnc
-  d[`derphi_a1]:derphiCalc`derval;
-  // if criteria 2, then use current values for star values and break loop 
-  $[i.wolfeCriteria2[d;params];
-    [d[`alpha_star]:d`alpha1;
-     d[`phi_star]:d`phi_a1;
-     d[`derphi_star]:derphiCalc`grad;
-     d[`idx]:0w;
-     :d];
-    // if criteria 3, zoom and stop loop
-    0<=d`derphi_a1;
-    [d[`idx]:0w;
-     d[i.new_zoom]:zoom_setup d[`alpha1`alpha0`phi_a1`phi_a0`derphi_a1]];
-    // update dictionary and repeat process until criteria is met
-    [d[`alpha0]:d`alpha1;
-     // new alpha has to be increased so just double
-     d[`alpha1]:2*d`alpha1;
-     d[`phi_a0]:d`phi_a1;
-     d[`phi_a1]:phi_fnc[d`alpha1];
-     d[`derphi_a0]:d`derphi_a1;
-     d[`derphi_a0_fin]:derphiCalc`grad;
-     d[`idx]+:1]
+  if[i.wolfeCriteria1[wolfeDict;params];
+    wolfeDict[`idx]:0w;
+    wolfeDict[i.new_zoom]:zoom_setup wolfeDict`alpha0`alpha1`phi_a0`phi_a1`derphi_a0;
+    :wolfeDict
   ];
-  d
+  // calculate the derivative of the function at the new position
+  derphiCalc:derphiFunc wolfeDict`alpha1;
+  // update the new derivative fnc
+  wolfeDict[`derphi_a1]:derphiCalc`derval;
+  $[i.wolfeCriteria2[wolfeDict;params];
+    [wolfeDict[`alpha_star] :wolfeDict`alpha1;
+     wolfeDict[`phi_star]   :wolfeDict`phi_a1;
+     wolfeDict[`derphi_star]:derphiCalc`grad;
+     wolfeDict[`idx]:0w;
+     :wolfeDict
+    ];
+    0<=wolfeDict`derphi_a1;
+    [wolfeDict[`idx]:0w;
+     wolfeDict[i.zoomReturn]:zoomSetup wolfeDict`alpha1`alpha0`phi_a1`phi_a0`derphi_a1
+    ];
+    // update dictionary and repeat process until criteria is met
+    [wolfeDict[`alpha0]:wolfeDict`alpha1;
+     wolfeDict[`alpha1]:2*wolfeDict`alpha1;
+     wolfeDict[`phi_a0]:wolfeDict`phi_a1;
+     wolfeDict[`phi_a1]:phiFunc wolfeDict`alpha1;
+     wolfeDict[`derphi_a0]:wolfeDict`derphi_a1;
+     wolfeDict[`derphi_a0_fin]:derphiCalc`grad;
+     wolfeDict[`idx]+:1
+    ]
+  ];
+  wolfeDict
   }
 
 // Zoom in on "bracketed" area and find optimal step and fk for next step
 // https://github.com/scipy/scipy/blob/v1.5.0/scipy/optimize/linesearch.py#L537
-/* derphi_fnc = derivative fnc
-/* phi_fnc    = phi function 
+/* derphiFunc = derivative fnc
+/* phiFunc    = phi function 
 /* phi0       = old value of f (fk)
 /* derphi0    = inital derivative (grad * step direction)
 /* lst        = list of hi and low calues for phi and deriv
 /. r          > returns new alpha, fk and derivative
-i.zoom_fnc:{[derphi_fnc;phi_fnc;phi0;derphi0;params;lst]
-  d:i.z_dict!lst,phi0;
-  d[`idx`a_rec]:2#0f;
-  zoom_d:{x[`idx]<y}[;10]i.zoom[derphi_fnc;phi_fnc;phi0;derphi0;params]/d;
+i.zoomFunc:{[derphiFunc;phiFunc;phi0;derphi0;params;lst]
+  zoomDict:i.zoomKeys!lst,phi0;
+  zoomDict[`idx`a_rec]:2#0f;
+  zoomDict:stopZoom[;params]i.zoom[derphiFunc;phiFunc;phi0;derphi0;params]/zoomDict;
   // if zoom did not converge, set to null
-  $[count star:zoom_d[i.new_zoom];star;3#0N]
+  $[count star:zoomDict[i.zoomReturn];star;3#0N]
   }
 
 /^same as above, run below until criteria is met or max iterations is reached
 // https://github.com/scipy/scipy/blob/v1.5.0/scipy/optimize/linesearch.py#L556
-i.zoom:{[derphi_fnc;phi_fnc;phi0;derphi0;params;d]
+i.zoom:{[derphiFunc;phiFunc;phi0;derphi0;params;zoomDict]
   // define high and low values
-  dalpha:d[`a_hi]-d[`a_lo];
-  h_l:`high`low!$[dalpha>0;d[`a_hi`a_lo];d[`a_lo`a_hi]];
+  dalpha:zoomDict[`a_hi]-zoomDict`a_lo;
+  // These should probably be named a and b since mapping doesn't work properly?
+  highLow:`high`low!$[dalpha>0;zoomDict`a_hi`a_lo;zoomDict`a_lo`a_hi];
+  // cubic interpolation check criterion
+  cubicCheck:dalpha*0.2;
   // Get cubic min
-  fnd_min:i.cubicmin . d`a_lo`phi_lo`derphi_lo`a_hi`phi_hi`a_rec`phi_rec;
-  // cubic interpolant chk
-  cchk:dalpha*0.2;
+  findMin:i.cubicMin . zoomDict`a_lo`phi_lo`derphi_lo`a_hi`phi_hi`a_rec`phi_rec;
   // if the result is too close to the end point points then use quadratic min 
-  if[i.quadCriteria[fnd_min;h_l;cchk];
-    // quadratic interpolant chk
-    qchk:0.1*dalpha;
-    fnd_min:i.quadmin . d`a_lo`phi_lo`derphi_lo`a_hi`phi_hi
+  if[i.quadCriteria[findMin;highLow;cubicCheck];
+    quadCheck:0.1*dalpha;
+    findMin:i.quadMin . zoomDict`a_lo`phi_lo`derphi_lo`a_hi`phi_hi;
+    if[(findMin > highLow[`low]-quadCheck) | findMin < highLow[`high]+quadCheck;
+      findMin:zoomDict[`a_lo]+0.5*dalpha
+    ]
   ];
   // update new values depending on fnd_min
-  phi_min:phi_fnc[fnd_min];
+  phi_min:phiFunc[findMin];
   //first condition, update and continue loop
-  if[i.zoomCriteria1[phi0;derphi0;phi_min;fnd_min;d;params];
-    [d[`idx]+:1;
-    d[i.upd_zoom1]:d[`phi_hi`a_hi],fnd_min,phi_min;:d]
+  if[i.zoomCriteria1[phi0;derphi0;phiMin;findMin;d;params];
+    zoomDict[`idx]+:1;
+    zoomDict[i.zoomKeys1]:zoomDict[`phi_hi`a_hi],findMin,phiMin;
+    :zoomDict
   ];
-  // calculate the derivative of the min
-  derphi_min:derphi_fnc[fnd_min];
+  // calculate the derivative at the cubic minimum
+  derphiMin:derphiFunc findMin;
   // second scenario, create new features and end the loop
-  $[i.zoomCriteria2[derphi0;derphi_min;params];
-    [d[`idx]:0w;
-     d:d,i.new_zoom!fnd_min,phi_min,enlist derphi_min`grad];
-    // third condition, then update and continue in loop
-    i.zoomCriteria3[derphi_min;dalpha];
-    [d[`idx]+:1;
-     d[i.upd_zoom1,i.upd_zoom2]:d[`phi_hi`a_hi`a_lo`phi_lo],fnd_min,phi_min,derphi_min`derval];
-    //if no condition was satisfied update values and continue on loop
-    [d[`idx]+:1;
-     d[i.upd_zoom3,i.upd_zoom2]:d[`phi_lo`a_lo],fnd_min,phi_min,derphi_min[`derval]]
+  $[i.zoomCriteria2[derphi0;derphiMin;params];
+    [zoomDict[`idx]:0w;
+     zoomDict:zoomDict,i.newZoom!findMin,phiMin,enlist derphiMin`grad];
+    i.zoomCriteria3[derphiMin;dalpha];
+    [zoomDict[`idx]+:1;
+     zoomDict[i.zoomKeys1,i.zoomKeys2]:zoomDict[`phi_hi`a_hi`a_lo`phi_lo],findMin,phiMin,derphiMin`derval];
+    [zoomDict[`idx]+:1;
+     zoomDict[i.zoomKeys3,i.zoomKeys2]:zoomDict[`phi_lo`a_lo],findMin,phiMin,derphiMin`derval]
   ];
-  // return updated dictionary
-  d
+  zoomDict
   }
 
-
 // Potentially can use lsq for this too? https://code.kx.com/q/ref/lsq/#polynomial-fitting
-
 // minimizer of a cubic polynomial 
 // https://github.com/scipy/scipy/blob/v1.5.0/scipy/optimize/linesearch.py#L482
 // minimize cubic function that goes through (a,fa), (b,fb), (c,fc)
@@ -314,7 +317,8 @@ i.cubicmin:{[a;fa;fpa;b;fb;c;fc]
   AB:d1 mmu(fb-fa-fpa*db;fc-fa-fpa*dc);
   AB%:denom;
   radical:AB[1]*AB[1]-3*AB[0]*fpa;
-  a+(neg[AB[1]]+sqrt(radical))%(3*AB[0])}
+  a+(neg[AB[1]]+sqrt(radical))%(3*AB[0])
+  }
 
 // get quadratic min
 // https://github.com/scipy/scipy/blob/v1.5.0/scipy/optimize/linesearch.py#L516
@@ -340,37 +344,37 @@ i.grad:{[func;xk;args;fk;eps]
   i.gradEval[fk;func;xk;args;eps]each til count xk
   }
 
-// Criteria functionsi https://www.csie.ntu.edu.tw/~r97002/temp/num_optimization.pdf pg 60
-i.wolfeCriteria1:{[d;params]
-  (d[`phi_a1]>d[`phi0]+params[`c1]*d[`alpha1]*d[`derphi0])|((d[`phi_a1]>=d[`phi_a0])&(d[`idx]>1))
+// Criteria functions https://www.csie.ntu.edu.tw/~r97002/temp/num_optimization.pdf pg 60
+i.wolfeCriteria1:{[wolfeDict;params]
+  (wolfeDict[`phi_a1]>wolfeDict[`phi0]+params[`c1]*wolfeDict[`alpha1]*wolfeDict[`derphi0])|((wolfeDict[`phi_a1]>=wolfeDict[`phi_a0])&(wolfeDict[`idx]>1))
   }
-i.wolfeCriteria2:{[d;params]
-  neg[params[`c2]*d[`derphi0]]>=abs d`derphi_a1
+i.wolfeCriteria2:{[wolfeDict;params]
+  neg[params[`c2]*wolfeDict[`derphi0]]>=abs wolfeDict`derphi_a1
   }
 
 // Zoom criteria function https://www.csie.ntu.edu.tw/~r97002/temp/num_optimization.pdf pg 61
-i.quadCriteria :{[fnd_min;h_l;cchk]
-  (fnd_min>h_l[`low]-cchk)|fnd_min<h_l[`high]+cchk
+i.quadCriteria :{[fnd_min;highLow;cubicCheck]
+  (fnd_min>highLow[`low]-cubicCheck) | (fnd_min<highLow[`high]+cubicCheck)
   }
 i.zoomCriteria1:{[phi0;derphi0;phi_min;fnd_min;d;params]
-  (phi_min>phi0+fnd_min*derphi0*params`c1)|phi_min>=d[`phi_lo]
+  (phi_min>phi0+fnd_min*derphi0*params`c1) | (phi_min>=d[`phi_lo])
   }
 i.zoomCriteria2:{[derphi0;derphi_min;params]
   abs[derphi_min`derval]<=neg derphi0*params`c2
   }
 i.zoomCriteria3:{[derphi_min;dalpha]
-  0 <= derphi_min[`derval]*dalpha
+  0<=derphi_min[`derval]*dalpha
   }
-   
-   
+	   
+	   
 // Zoom dictionary 
 
 //input keys of zoom dictionary
-i.z_dict:`a_lo`a_hi`phi_lo`phi_hi`derphi_lo`phi_rec;
+i.zoomKeys:`a_lo`a_hi`phi_lo`phi_hi`derphi_lo`phi_rec;
 // keys to be updated in zoom each iteration
-i.upd_zoom1:`phi_rec`a_rec`a_hi`phi_hi;
+i.zoomKeys1:`phi_rec`a_rec`a_hi`phi_hi;
 // extra keys that have to be updated in some scenarios
-i.upd_zoom2:`a_lo`phi_lo`derphi_lo;
-i.upd_zoom3:`phi_rec`a_rec
+i.zoomKeys2:`a_lo`phi_lo`derphi_lo;
+i.zoomKeys3:`phi_rec`a_rec
 // final updated keys to be used
-i.new_zoom:`alpha_star`phi_star`derphi_star;
+i.zoomReturn:`alpha_star`phi_star`derphi_star;
