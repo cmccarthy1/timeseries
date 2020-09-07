@@ -179,7 +179,7 @@ i.SARMA.coefficients:{[endog;exog;resid;coeff;params]
   params[`norm_mat]:(,'/)m#'vals;
   optD:`xk`args!(coeff;params);
   // use optimizer function to improve SARMA coefficients
-  optimize[i.SARMA.maxLikelihood;optD]`xk
+  .ml.optimize.BFGS[i.SARMA.maxLikelihood;coeff;params;::]`xVals
   }
 
 // @private
