@@ -156,32 +156,32 @@ i.estimateErrors:{[endog;exog;lags]
 // @return {dict} updated optimized coefficients for SARMA model
 i.SARMA.coefficients:{[endog;exog;resid;coeff;params]
   // data length to use
-  len_q:count[resid]-max raze params[`q`Q`seas_add_Q];
-  len_p:count[endog]-max raze params[`p`P`seas_add_P];
+  lenq:count[resid]-max raze params[`q`Q`seas_add_Q];
+  lenp:count[endog]-max raze params[`p`P`seas_add_P];
   // prediction values
-  params[`real]:#[m:neg min len_p,len_q;endog];
+  params[`real]:#[m:neg min lenp,lenq;endog];
   // get lagged values
-  lag_val:i.lagMatrix[endog;params`p];
+  lagVal:i.lagMatrix[endog;params`p];
   // get seasonal lag values
-  seas_lag:flip params[`P]xprev\:endog;
+  seasLag:flip params[`P]xprev\:endog;
   // get additional seasonal lag values
   params[`seas_lag_add]:$[params[`p]&min count params`P;
     m#flip params[`seas_add_P]xprev\:endog;
     2#0f
     ];
   // get resid vals
-  resid_val:i.lagMatrix[resid;params`q];
-  seas_resid:flip params[`Q]xprev\:resid;
+  residVal:i.lagMatrix[resid;params`q];
+  seasResid:flip params[`Q]xprev\:resid;
   params[`seas_resid_add]:$[params[`q]&min count params`Q;
     m#flip params[`seas_add_Q]xprev\:resid;
     2#0f
     ];
   // normal arima vals
-  vals:(exog;lag_val;resid_val;seas_lag;seas_resid);
+  vals:(exog;lagVal;residVal;seasLag;seasResid);
   params[`norm_mat]:(,'/)m#'vals;
-  opt_d:`xk`args!(coeff;params);
+  optD:`xk`args!(coeff;params);
   // use optimizer function to improve SARMA coefficients
-  optimize[i.SARMA.maxLikelihood;opt_d]`xk
+  optimize[i.SARMA.maxLikelihood;optD]`xk
   }
 
 // @private
@@ -396,16 +396,16 @@ i.SARMA.singlePredict:{[params;exog;dict;pvals;estresid];
 i.SARMA.preproc:{[params;dict]
   // 1. Calculate or retrieve all necessary seasonal lagged values for SARMA prediction
   // split up the coefficients to their respective p,q,P,Q parts
-  lag_p:(dict[`tr] _params)[til dict`p];
-  lag_q:((dict[`tr]+dict`p)_params)[til dict`q];
-  lag_seas_p:((dict[`tr]+sum dict`q`p)_params)[til count[dict`P]];
-  lag_seas_q:neg[count dict`Q]#params;
+  lagp:(dict[`tr] _params)[til dict`p];
+  lagq:((dict[`tr]+dict`p)_params)[til dict`q];
+  lagSeasp:((dict[`tr]+sum dict`q`p)_params)[til count[dict`P]];
+  lagSeasq:neg[count dict`Q]#params;
   // Function to extract additional seasonal multiplied coefficients
   // These coefficients multiply p x P vals and q x Q vals
   seas_multi:{[x;y;z;d]$[d[x]&min count d upper x;(*/)flip y cross z;2#0f]};
   // append new lags to original dictionary
   dictKeys:`add_lag_param`add_resid_param;
-  dictVals:(seas_multi[`p;lag_p;lag_seas_p;dict];seas_multi[`q;lag_q;lag_seas_q;dict]);
+  dictVals:(seas_multi[`p;lagp;lagSeasp;dict];seas_multi[`q;lagq;lagSeasq;dict]);
   dictKeys!dictVals
   }
 
@@ -444,10 +444,10 @@ i.SARMA.predictValue:{[params;pvals;exog;dict]
 //   when making a prediction
 // @return {num[]} the SARMA prediction values 
 i.SARMA.eval:{[params;dict]
-  norm_val  :mmu[dict`norm_mat;dict[`tr] _params];
-  seas_resid:mmu[dict`seas_resid_add;dict`add_resid_param];
-  seas_lag  :mmu[dict`seas_lag_add;dict`add_lag_param];
-  $[dict`tr;params[0]+;]norm_val+seas_resid+seas_lag
+  normVal  :mmu[dict`norm_mat;dict[`tr] _params];
+  seasResid:mmu[dict`seas_resid_add;dict`add_resid_param];
+  seasLag  :mmu[dict`seas_lag_add;dict`add_lag_param];
+  $[dict`tr;params[0]+;]normVal+seasResid+seasLag
   }
 
 
@@ -637,7 +637,6 @@ i.reverseSeasonDiff:{[origd;dfdata]
 
 // @private
 // Functions used to flag errors
-i.err.steps:{'`$"Exog length not long enough"}
 i.err.stat:{'`$"Time series not stationary, try another value of d"}
 i.err.len:{'`$"Endog length less than length"}
 i.err.exog:{'`$"Test exog length does not match train exog length"}
@@ -689,9 +688,9 @@ i.dictCheck:{[dict;keyvals;input]
 // @fileoverview check that the exogenous data match the expected input when
 //   predicting data using a the model are consistent, in the case they are not,
 //   flag an error ensure that the exogenous data is returned as a matrix
-// @param mdl {dict} dictionary containing required information to predict
+// @param mdl  {dict} dictionary containing required information to predict
 //   future values
-// @param exog  {tab/num[][]} exogenous dataset
+// @param exog {tab/num[][]} exogenous dataset
 // @return {num[][]} exogenous data as a matrix
 i.predDataCheck:{[mdl;exog]
   // allow null to be provided as exogenous variable

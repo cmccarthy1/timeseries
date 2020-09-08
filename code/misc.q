@@ -15,14 +15,14 @@
 stationality:{[dset]
   dtype:type dset;
   // Names to be provided to form the key for the return table
-  keynames:$[99h=dtype;key dset;
+  keyNames:$[99h=dtype;key dset;
     98h=dtype;cols dset;
     enlist`data
     ];
   // Column names associated with the returns from the augmented dickey fuller test
   dcols:`ADFstat`pvalue`stationary,`$raze each"CriticalValue_",/:string(1;5;10),\:"%";
   scores:i.stationaryScores[dset;dtype];
-  keynames!flip dcols!scores
+  keyNames!flip dcols!scores
   }
 
 // @kind function
@@ -59,15 +59,15 @@ aicParam:{[train;test;len;params]
 // @return         {tab} table with functions applied on specified columns over 
 //   appropriate windows remove the first max[wins] columns as these are produced
 //   with insufficient information to be deemed accurate
-tsWindow:{[tab;col_names;funcs;wins]
+tsWindow:{[tab;colNames;funcs;wins]
   // unique combinations of columns/windows and functions to be applied to the dataset
-  uni_combs:(cross/)(funcs;wins;col_names);
+  uniCombs:(cross/)(funcs;wins;colNames);
   // column names for windowed functions (remove ".") to ensure that if namespaced columns
   // exist they don't jeopardize parsing of select statements.
-  win_cols:`$ssr[;".";""]each sv["_"]each string uni_combs;
+  winCols:`$ssr[;".";""]each sv["_"]each string uniCombs;
   // values from applied functions over associated windows
-  win_vals:{i.slidingWindowFunction[get string y 0;y 1;x y 2]}[tab]each uni_combs;
-  max[wins]_tab,'flip win_cols!win_vals
+  winVals:{i.slidingWindowFunction[get string y 0;y 1;x y 2]}[tab]each uniCombs;
+  max[wins]_tab,'flip winCols!winVals
   }
 
 
@@ -80,12 +80,12 @@ tsWindow:{[tab;col_names;funcs;wins]
 // @param lags     {integers[]} list of lagged values to retrieve from the dataset
 // @return         {tab} table with columns added associated with the specied lagged
 //   values 
-tsLag:{[tab;col_names;lags]
-  if[1=count col_names;col_names,:()];
+tsLag:{[tab;colNames;lags]
+  if[1=count colNames;colNames,:()];
   if[1=count lags;lags,:()];
-  lag_names:`$raze string[col_names],\:/:"_xprev_",/:string lags;
-  lag_vals :raze xprev'[;tab col_names]each lags;
-  tab,'flip lag_names!lag_vals
+  lagNames:`$raze string[colNames],/:\:"_xprev_",/:string lags;
+  lagVals :raze xprev'[;tab colNames]each lags;
+  tab,'flip lagNames!lagVals
   }
 
 
