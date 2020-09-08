@@ -224,7 +224,7 @@ i.scalarWolfe:{[derphiFunc;phiFunc;pk;params;wolfeDict]
 // @returns {num[]} new alpha, fk and derivative values
 i.zoomFunc:{[derphiFunc;phiFunc;phi0;derphi0;params;lst]
   zoomDict:i.zoomKeys!lst,phi0;
-  zoomDict[`idx`a_rec]:2#0f;
+  zoomDict[`idx`a_rec]:(0;0f);
   zoomDict:i.stopZoom[;params]i.zoom[derphiFunc;phiFunc;phi0;derphi0;params]/zoomDict;
   // if zoom did not converge, set to null
   $[count star:zoomDict[i.zoomReturn];star;3#0N]
@@ -252,12 +252,11 @@ i.zoom:{[derphiFunc;phiFunc;phi0;derphi0;params;zoomDict]
   dalpha:zoomDict[`a_hi]-zoomDict`a_lo;
   // These should probably be named a and b since mapping doesn't work properly?
   highLow:`high`low!$[dalpha>0;zoomDict`a_hi`a_lo;zoomDict`a_lo`a_hi];
-  // cubic interpolation check criterion
-  cubicCheck:dalpha*0.2;
-  // Get cubic min
-  findMin:i.cubicMin . zoomDict`a_lo`phi_lo`derphi_lo`a_hi`phi_hi`a_rec`phi_rec;
-  // if the result is too close to the end point then use quadratic min 
-  if[i.quadCriteria[findMin;highLow;cubicCheck];
+  if[zoomDict`idx;
+    cubicCheck:dalpha*0.2;
+    findMin:i.cubicMin . zoomDict`a_lo`phi_lo`derphi_lo`a_hi`phi_hi`a_rec`phi_rec
+  ];
+  if[i.quadCriteria[findMin;highLow;cubicCheck;zoomDict];
     quadCheck:0.1*dalpha;
     findMin:i.quadMin . zoomDict`a_lo`phi_lo`derphi_lo`a_hi`phi_hi;
     if[(findMin > highLow[`low]-quadCheck) | findMin < highLow[`high]+quadCheck;
@@ -594,11 +593,17 @@ i.wolfeCriteria2:{[wolfeDict;params]
 // @param findMin {num[]} the currently calculated minimum values
 // @param highLow {dict} upper and lower bounds of the search space
 // @param cubicCheck {float} interpolation check parameter
+// @param zoomDict {dict} parameters to be updated as 'zoom' procedure is applied to find
+//   the optimal value of alpha
 // @returns {bool} indication as to if the value of findMin needs to be updated 
-i.quadCriteria:{[findMin;highLow;cubicCheck]
-  check1:findMin>highLow[`low] -cubicCheck;
-  check2:findMin<highLow[`high]+cubicCheck;
-  check1 or check2
+i.quadCriteria:{[findMin;highLow;cubicCheck;zoomDict]
+  // On initial iteration the minimum has not been calculated
+  // as such criteria should exit early to complete the quadratic calculation
+  if[findMin~();:1b];
+  check1:0=zoomDict`idx;
+  check2:findMin>highLow[`low] -cubicCheck;
+  check3:findMin<highLow[`high]+cubicCheck;
+  check1 or check2 or check3
   }
 
 
