@@ -23,17 +23,6 @@ fileList:`stationalityTab1`stationalityTab2`aicScore1`aicScore2`aicScore3`aicSco
          `windowTab1`windowTab2`lagTab1`lagTab2
 {load hsym`$":tests/data/misc/",string x}each fileList;
 
-// Load in function return
-load`:tests/data/misc/stationalityTab1;
-load`:tests/data/misc/stationalityTab2;
-load`:tests/data/misc/aicScore1;
-load`:tests/data/misc/aicScore2;
-load`:tests/data/misc/aicScore3;
-load`:tests/data/misc/aicScore4;
-load`:tests/data/misc/windowTab1;
-load`:tests/data/misc/windowTab2;
-load`:tests/data/misc/lagTab1;
-load`:tests/data/misc/lagTab2;
 
 // Stationality
 

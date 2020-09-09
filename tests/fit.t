@@ -32,8 +32,8 @@ failingTest[.tm.AR.fit;(endogFloat;5000#exogFloat;1;1b);0b;"Endog length less th
 .tm.ARMA.fit[endogFloat;exogInt  ;1;1;0b]~ARMA3
 .tm.ARMA.fit[endogFloat;exogMixed;3;2;1b]~ARMA4
 
-failingTest[.tm.ARMA.fit;(endogInt  ;5000#exogInt  ;2;1;0b);0b;"Endog length less than length"                     ]
-failingTest[.tm.ARMA.fit;(endogFloat;5000#exogFloat;2;1;0b);0b;"Endog length less than length"                     ]
+failingTest[.tm.ARMA.fit;(endogInt  ;5000#exogInt  ;2;1;0b);0b;"Endog length less than length"]
+failingTest[.tm.ARMA.fit;(endogFloat;5000#exogFloat;2;1;0b);0b;"Endog length less than length"]
 
 
 // ARCH tests
@@ -47,8 +47,8 @@ failingTest[.tm.ARMA.fit;(endogFloat;5000#exogFloat;2;1;0b);0b;"Endog length les
 .tm.ARIMA.fit[endogFloat;exogInt  ;3;0;1;1b]~ARIMA3
 .tm.ARIMA.fit[endogFloat;exogMixed;1;2;2;0b]~ARIMA4
 
-failingTest[.tm.ARIMA.fit;(endogInt  ;5000#exogInt  ;1;1;1;1b);0b;"Endog length less than length"                     ]
-failingTest[.tm.ARIMA.fit;(endogFloat;5000#exogFloat;1;1;1;1b);0b;"Endog length less than length"                     ]
+failingTest[.tm.ARIMA.fit;(endogInt  ;5000#exogInt  ;1;1;1;1b);0b;"Endog length less than length"]
+failingTest[.tm.ARIMA.fit;(endogFloat;5000#exogFloat;1;1;1;1b);0b;"Endog length less than length"]
 failingTest[.tm.ARIMA.fit;(nonStat   ;()            ;1;0;1;1b);0b;"Time series not stationary, try another value of d"]
 
 // SARIMA tests
@@ -62,7 +62,7 @@ s4:`P`D`Q`m!0 1 1 20
 .tm.SARIMA.fit[endogFloat;exogInt  ;1;2;0;0b;s3]~SARIMA3
 .tm.SARIMA.fit[endogFloat;exogMixed;2;1;1;0b;s4]~SARIMA4
 
-failingTest[.tm.SARIMA.fit;(endogInt  ;5000#exogInt  ;2;0;1;1b;s1);0b;"Endog length less than length"                     ]
-failingTest[.tm.SARIMA.fit;(endogFloat;5000#exogFloat;2;0;1;1b;s1);0b;"Endog length less than length"                     ]
+failingTest[.tm.SARIMA.fit;(endogInt  ;5000#exogInt  ;2;0;1;1b;s1);0b;"Endog length less than length"]
+failingTest[.tm.SARIMA.fit;(endogFloat;5000#exogFloat;2;0;1;1b;s1);0b;"Endog length less than length"]
 failingTest[.tm.SARIMA.fit;(nonStat   ;()            ;2;0;0;1b;s1);0b;"Time series not stationary, try another value of d"]
 

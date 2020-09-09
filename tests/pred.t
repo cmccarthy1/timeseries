@@ -37,8 +37,8 @@ failingTest[.tm.AR.predict;(AR3;-1_'exogIntFuture  ;1000);0b;"Test exog length d
 .tm.ARMA.predict[ARMA3;exogIntFuture;1000]~predARMA3
 .tm.ARMA.predict[ARMA4;exogMixedFuture;1000]~predARMA4
 
-failingTest[.tm.ARMA.predict;(ARMA2;-1_'exogFloatFuture;1000);0b;"Test exog length does not match train exog length"                                                     ]
-failingTest[.tm.ARMA.predict;(ARMA3;-1_'exogIntFuture  ;1000);0b;"Test exog length does not match train exog length"                                                     ]
+failingTest[.tm.ARMA.predict;(ARMA2;-1_'exogFloatFuture;1000);0b;"Test exog length does not match train exog length"]
+failingTest[.tm.ARMA.predict;(ARMA3;-1_'exogIntFuture  ;1000);0b;"Test exog length does not match train exog length"]
 failingTest[.tm.ARMA.predict;(AR1  ;()                 ;1000);0b;"The following required dictionary keys for 'mdl' are not provided: q_param, resid, estresid, pred_dict"]
 
 // ARIMA tests
@@ -48,8 +48,8 @@ failingTest[.tm.ARMA.predict;(AR1  ;()                 ;1000);0b;"The following 
 .tm.ARIMA.predict[ARIMA3;exogIntFuture;1000]~predARIMA3
 .tm.ARIMA.predict[ARIMA4;exogMixedFuture;1000]~predARIMA4
 
-failingTest[.tm.ARIMA.predict;(ARIMA2;-1_'exogFloatFuture;1000);0b;"Test exog length does not match train exog length"                       ]
-failingTest[.tm.ARIMA.predict;(ARIMA3;-1_'exogIntFuture  ;1000);0b;"Test exog length does not match train exog length"                       ] 
+failingTest[.tm.ARIMA.predict;(ARIMA2;-1_'exogFloatFuture;1000);0b;"Test exog length does not match train exog length"]
+failingTest[.tm.ARIMA.predict;(ARIMA3;-1_'exogIntFuture  ;1000);0b;"Test exog length does not match train exog length"] 
 failingTest[.tm.ARIMA.predict;(ARMA4 ;exogMixedFuture    ;1000);0b;"The following required dictionary keys for 'mdl' are not provided: origd"]
 
 // SARIMA tests
@@ -59,8 +59,8 @@ failingTest[.tm.ARIMA.predict;(ARMA4 ;exogMixedFuture    ;1000);0b;"The followin
 .tm.SARIMA.predict[SARIMA3;exogIntFuture;1000]~predSARIMA3
 .tm.SARIMA.predict[SARIMA4;exogMixedFuture;1000]~predSARIMA4
 
-failingTest[.tm.SARIMA.predict;(SARIMA2;-1_'exogFloatFuture;1000);0b;"Test exog length does not match train exog length"                                         ]
-failingTest[.tm.SARIMA.predict;(SARIMA3;-1_'exogIntFuture  ;1000);0b;"Test exog length does not match train exog length"                                         ]
+failingTest[.tm.SARIMA.predict;(SARIMA2;-1_'exogFloatFuture;1000);0b;"Test exog length does not match train exog length"]
+failingTest[.tm.SARIMA.predict;(SARIMA3;-1_'exogIntFuture  ;1000);0b;"Test exog length does not match train exog length"]
 failingTest[.tm.SARIMA.predict;(ARIMA2 ;exogFloatFuture    ;1000);0b;"The following required dictionary keys for 'mdl' are not provided: origs, P_param, Q_param"]
 
 
