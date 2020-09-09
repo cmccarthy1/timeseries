@@ -14,9 +14,9 @@
 // @return {dict} All information required to use a fit model for the prediction of
 //   new values based on incoming data
 AR.fit:{[endog;exog;lags;trend]
+  // cast endog to floating value
+  endog:"f"$endog;
   exog:i.fitDataCheck[endog;exog];
-  // AR models require no non seasonal differencing steps
-  i.differ[endog;0;()!()];
   // Estimate coefficients
   coeff:$[sum trend,count[exog];
     i.estimateParams[endog;exog;endog;`p`q`tr!lags,0,trend];
@@ -43,9 +43,13 @@ AR.fit:{[endog;exog;lags;trend]
 // @return {dict} All information required to use a fit model for the prediction of
 //   new values based on incoming data
 ARMA.fit:{[endog;exog;lags;resid;trend]
+  // cast endog to floating value
+  endog:"f"$endog;
+  exog:i.fitDataCheck[endog;exog];
   $[resid~0;
     // if q = 0 then model is an AR model
-    AR.fit[endog;exog;lags;trend],`q_param`resid!(();());
+    AR.fit[endog;exog;lags;trend],`q_param`resid`estresid`pred_dict!
+      (();();();`p`q`tr!lags,resid,trend);
     i.ARMA.model[endog;exog;`p`q`tr!lags,resid,trend]]
   }
 
@@ -91,6 +95,8 @@ ARIMA.fit:{[endog;exog;lags;diff;resid;trend]
 // @return {dict} All information required to use a fit model for the prediction of
 //   new values based on incoming data
 SARIMA.fit:{[endog;exog;lags;diff;resid;trend;seas]
+  // cast endog to floating value
+  endog:"f"$endog;
   i.dictCheck[seas;`P`Q`D`m;"seas"];
   // Apply error checking (exogenous data not converted to matrix?)
   exog:i.fitDataCheck[endog;exog];
@@ -109,23 +115,19 @@ SARIMA.fit:{[endog;exog;lags;diff;resid;trend;seas]
 // @kind function
 // @category modelFit
 // @fileoverview Fit an AutoRegressive Conditional Heteroscedasticity model (ARCH)
-// @param endog {num[]} Endogenous variable (time-series) from which to build a model
-//   this is the target variable from which a value is to be predicted
-// @param exog  {tab/num[][]/(::)} Exogenous variables, are additional variables which
-//   may be accounted for to improve the model, if (::)/() this will be ignored
+// @param resid {num[]} Residual errors from fitted time series model
 // @param lags  {integer} The number/order of time  lags of the model
 // @return {dict} All information required to use a fit model for the prediction of
 //   new values based on incoming data
-// Fit an ARCH model
-/. r    > the model parameters and data needed for future predictions
-ARCH.fit:{[endog;exog;lags]
-  exog:i.fitDataCheck[endog;exog];
-  // Retrieve squared error
-  sqer:err*err:i.estimateErrors[endog;exog;lags]`err;
+ARCH.fit:{[resid;lags]
+  // cast to floating value
+  resid:"f"$resid;
+  // cast endog to floating value
+  sqresid:resid*resid;
   // Using the resid errorrs calculate coefficients
-  coeff:i.estimateParams[sqer;();sqer;`p`q`tr!lags,0,1b];
+  coeff:i.estimateParams[sqresid;();sqresid;`p`q`tr!lags,0,1b];
   // Get lagged values needed for future predictions
-  resid:neg[lags]#sqer;
+  resid:neg[lags]#sqresid;
   // return dictionary with required info for predictions
   keyVals:`params`tr_param`p_param`resid;
   params:(coeff;coeff[0];1_coeff;resid);

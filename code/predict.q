@@ -13,7 +13,7 @@
 AR.predict:{[mdl;exog;len]
   i.dictCheck[mdl;i.AR.keyList;"mdl"];
   exog:i.predDataCheck[mdl;exog];
-  mdl[`pred_dict]:enlist[`p]!enlist count mdl`p_param;
+  mdl[`pred_dict]:`p`tr!count each mdl`p_param`tr_param;
   mdl[`estresid]:();
   mdl[`resid]:();
   i.predictFunction[mdl;exog;len;i.AR.singlePredict]

@@ -7,4 +7,3 @@ loadfile`:code/optim.q
 loadfile`:code/fit.q
 loadfile`:code/predict.q
 loadfile`:code/misc.q
-

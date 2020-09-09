@@ -102,6 +102,8 @@ i.estimateParams:{[endog;exog;errors;params]
 // @param lags {integer} order of the AR(p) model being fit
 // @return {float[]} AR(p) coefficients for specified lagged value
 i.durbinLevinson:{[data;lags]
+  // cast to float
+  data:"f"$data;
   mat:(1+lags;1+lags)#0f;
   vec:(1+lags)#0f;
   mat[1;1]:i.autoCorrFunction[data;1];
@@ -635,7 +637,6 @@ i.reverseSeasonDiff:{[origd;dfdata]
 
 // @private
 // Functions used to flag errors
-i.err.steps:{'`$"Exog length not long enough"}
 i.err.stat:{'`$"Time series not stationary, try another value of d"}
 i.err.len:{'`$"Endog length less than length"}
 i.err.exog:{'`$"Test exog length does not match train exog length"}
@@ -658,7 +659,7 @@ i.fitDataCheck:{[endog;exog]
   // check that exogenous variable length is appropriate
   if[not[()~exog]&(count[endog])>count exog;i.err.len[]];
   // convert exon table to matrix
-  $[98h~type exog;:"f"$i.tabToMatrix exog;:exog];
+  $[98h~type exog;:"f"$i.tabToMatrix exog;()~exog;:exog;:"f"$exog];
   }
 
 // @private
@@ -697,7 +698,7 @@ i.predDataCheck:{[mdl;exog]
   // check that the fit and new params are equivalent
   if[not count[mdl`exog_param]~count exog[0];i.err.exog[]];
   // convert exogenous variable to a matrix if required
-  $[98h~type exog;"f"$i.tabToMatrix exog;exog]
+  $[98h~type exog;"f"$i.tabToMatrix exog;()~exog;:exog;"f"$exog]
   }
 
 // @private

@@ -44,7 +44,7 @@ optimize.BFGS:{[func;x0;args;params]
   // Evaluate the function at the starting point
   f0:i.funcEval[func;x0;args];
   // Calculate the starting gradient
-  gk:i.grad[func;x0;args;f0;params`geps];
+  gk:i.grad[func;x0;args;params`geps];
   // Initialize Hessian matrix as identity matrix
   hess:.ml.eye count x0;
   // set initial step guess i.e. the step before f0
@@ -94,10 +94,10 @@ i.BFGSFunction:{[func;optimDict;args;params]
   // update values of x at the new position k
   optimDict[`xk]:optimDict[`prev_xk]+sk;
   // if null gnew, then get gradient of new x value
-  if[any null gnew;gnew:i.grad[func;optimDict`xk;args;optimDict`fk;params`geps]];
-  optimDict[`gk]:gnew;
+  if[any null gnew;gnew:i.grad[func;optimDict`xk;args;params`geps]];
   // subtract new gradients
-  yk:gnew-optimDict`gk;
+  yk:gnew-optimDict`gk;;
+  optimDict[`gk]:gnew;
   // get new norm of gradient
   optimDict[`gnorm]:i.vecNorm[optimDict`gk;params`norm];
   // calculate new hessian matrix for next iteration 
@@ -133,7 +133,7 @@ i.BFGSFunction:{[func;optimDict;args;params]
 // @return {num[]} new alpha, fk and derivative values
 i.wolfeSearch:{[fk;prev_fk;gk;pk;func;xk;args;params]
   phiFunc   :i.phi[func;pk;;xk;args];
-  derphiFunc:i.derphi[func;params`geps;pk;;xk;args;fk];
+  derphiFunc:i.derphi[func;params`geps;pk;;xk;args];
   // initial Wolfe conditions
   wolfeDict:`idx`alpha0`phi0`phi_a0!(0;0;fk;fk);
   // calculate the derivative at that phi0
@@ -224,7 +224,7 @@ i.scalarWolfe:{[derphiFunc;phiFunc;pk;params;wolfeDict]
 // @returns {num[]} new alpha, fk and derivative values
 i.zoomFunc:{[derphiFunc;phiFunc;phi0;derphi0;params;lst]
   zoomDict:i.zoomKeys!lst,phi0;
-  zoomDict[`idx`a_rec]:(0;0f);
+  zoomDict[`idx`a_rec]:2#0f;
   zoomDict:i.stopZoom[;params]i.zoom[derphiFunc;phiFunc;phi0;derphi0;params]/zoomDict;
   // if zoom did not converge, set to null
   $[count star:zoomDict[i.zoomReturn];star;3#0N]
@@ -252,7 +252,7 @@ i.zoom:{[derphiFunc;phiFunc;phi0;derphi0;params;zoomDict]
   dalpha:zoomDict[`a_hi]-zoomDict`a_lo;
   // These should probably be named a and b since mapping doesn't work properly?
   highLow:`high`low!$[dalpha>0;zoomDict`a_hi`a_lo;zoomDict`a_lo`a_hi];
-  if[zoomDict`idx;
+  if["i"$zoomDict`idx;
     cubicCheck:dalpha*0.2;
     findMin:i.cubicMin . zoomDict`a_lo`phi_lo`derphi_lo`a_hi`phi_hi`a_rec`phi_rec
   ];
@@ -276,7 +276,7 @@ i.zoom:{[derphiFunc;phiFunc;phi0;derphi0;params;zoomDict]
   // second scenario, create new features and end the loop
   $[i.zoomCriteria2[derphi0;derphiMin;params];
     [zoomDict[`idx]:0w;
-     zoomDict:zoomDict,newZoom!findMin,phiMin,enlist derphiMin`grad];
+     zoomDict:zoomDict,i.zoomReturn!findMin,phiMin,enlist derphiMin`grad];
     i.zoomCriteria3[derphiMin;dalpha];
     [zoomDict[`idx]+:1;
      zoomDict[i.zoomKeys1,i.zoomKeys2]:zoomDict[`phi_hi`a_hi`a_lo`phi_lo],
@@ -386,13 +386,12 @@ i.phi:{[func;pk;alpha;xk;args]
 // @param alpha {float} size of the step to be applied
 // @param xk {num[]} parameter values at position k
 // @param args {dict/num[]} function arguments that do not change per iteration
-// @param fk {float} function return evaluated at position k
 // @returns {dict} gradient and value of scalar derivative
-i.derphi:{[func;eps;pk;alpha;xk;args;fk]
+i.derphi:{[func;eps;pk;alpha;xk;args]
   // increment xk by a small step size
   xk+:alpha*pk;
   // get gradient at the new position
-  gval:i.grad[func;xk;args;fk;eps];
+  gval:i.grad[func;xk;args;eps];
   derval:gval mmu pk;
   `grad`derval!(gval;derval)
   }
@@ -458,11 +457,11 @@ i.quadMin:{[a;fa;fpa;b;fb]
 // @param func {lambda} the objective function to be minimized
 // @param xk {num[]} parameter values at position k
 // @param args {dict/num[]} function arguments that do not change per iteration
-// @param fk {float} function return evaluated at position k
 // @param eps {float} the absolute step size used for numerical approximation
 //   of the jacobian via forward differences.
 // @returns {dict} gradient of function at position k
-i.grad:{[func;xk;args;fk;eps]
+i.grad:{[func;xk;args;eps]
+  fk:i.funcEval[func;xk;args];
   i.gradEval[fk;func;xk;args;eps]each til count xk
   }
 
@@ -474,7 +473,6 @@ i.grad:{[func;xk;args;fk;eps]
 // @param func {lambda} the objective function to be minimized
 // @param xk {num[]} parameter values at position k
 // @param args {dict/num[]} function arguments that do not change per iteration
-// @param fk {float} function return evaluated at position k
 // @param eps {float} the absolute step size used for numerical approximation
 //   of the jacobian via forward differences.
 // @returns {dict} gradient of function at position k with an individual

@@ -79,8 +79,7 @@ tsWindow:{[tab;colNames;funcs;wins]
 // @param colNames {symbol[]} names of the columns from which to retrieve lagged data
 // @param lags     {integers[]} list of lagged values to retrieve from the dataset
 // @return         {tab} table with columns added associated with the specied lagged
-//   values, remove the first max[lags] rows as these are produced with insufficient 
-//   information to be deemed accurate
+//   values 
 tsLag:{[tab;colNames;lags]
   if[1=count colNames;colNames,:()];
   if[1=count lags;lags,:()];
