@@ -11,25 +11,10 @@ exogMixed :(10000 20#20000?1000),'(10000 20#20000?1000f),'(10000 10#10000?0b)
 residInt  :10000?1000
 residFloat:10000?1000f
 
-load`:tests/data/fit/AR1;
-load`:tests/data/fit/AR2;
-load`:tests/data/fit/AR3;
-load`:tests/data/fit/AR4;
-load`:tests/data/fit/ARCH1;
-load`:tests/data/fit/ARCH2;
-load`:tests/data/fit/ARMA1;
-load`:tests/data/fit/ARMA2;
-load`:tests/data/fit/ARMA3;
-load`:tests/data/fit/ARMA4;
-load`:tests/data/fit/ARIMA1;
-load`:tests/data/fit/ARIMA2;
-load`:tests/data/fit/ARIMA3;
-load`:tests/data/fit/ARIMA4;
-load`:tests/data/fit/SARIMA1;
-load`:tests/data/fit/SARIMA2;
-load`:tests/data/fit/SARIMA3;
-load`:tests/data/fit/SARIMA4;
-load`:tests/data/fit/nonStat;
+// Load files
+fileList:`AR1`AR2`AR3`AR4`ARCH1`ARCH2`ARMA1`ARMA2`ARMA3`ARMA4`ARIMA1`ARIMA2,
+         `ARIMA3`ARIMA4`SARIMA1`SARIMA2`SARIMA3`SARIMA4`nonStat
+{load hsym`$":tests/data/fit/",string x}each fileList;
 
 // AR tests
 .tm.AR.fit[endogInt  ;()       ;1;0b]~AR1
@@ -49,7 +34,6 @@ failingTest[.tm.AR.fit;(endogFloat;5000#exogFloat;1;1b);0b;"Endog length less th
 
 failingTest[.tm.ARMA.fit;(endogInt  ;5000#exogInt  ;2;1;0b);0b;"Endog length less than length"                     ]
 failingTest[.tm.ARMA.fit;(endogFloat;5000#exogFloat;2;1;0b);0b;"Endog length less than length"                     ]
-failingTest[.tm.ARMA.fit;(nonStat   ;()            ;1;1;1b);0b;"Time series not stationary, try another value of d"]
 
 
 // ARCH tests

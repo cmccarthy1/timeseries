@@ -17,6 +17,12 @@ exogIntFuture   :1000 50#5000?1000
 exogFloatFuture :1000 50#5000?1000f
 exogMixedFuture :(1000 20#20000?1000),'(1000 20#20000?1000f),'(1000 10#10000?0b)
 
+
+// Load files
+fileList:`stationalityTab1`stationalityTab2`aicScore1`aicScore2`aicScore3`aicScore4,
+         `windowTab1`windowTab2`lagTab1`lagTab2
+{load hsym`$":tests/data/misc/",string x}each fileList;
+
 // Load in function return
 load`:tests/data/misc/stationalityTab1;
 load`:tests/data/misc/stationalityTab2;

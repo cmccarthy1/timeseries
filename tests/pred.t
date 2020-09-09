@@ -7,45 +7,13 @@ exogIntFuture   :1000 50#5000?1000
 exogFloatFuture :1000 50#5000?1000f
 exogMixedFuture :(1000 20#20000?1000),'(1000 20#20000?1000f),'(1000 10#10000?0b)
 
-// Load in fitted models
-load`:tests/data/fit/AR1;
-load`:tests/data/fit/AR2;
-load`:tests/data/fit/AR3;
-load`:tests/data/fit/AR4;
-load`:tests/data/fit/ARCH1;
-load`:tests/data/fit/ARCH2;
-load`:tests/data/fit/ARMA1;
-load`:tests/data/fit/ARMA2;
-load`:tests/data/fit/ARMA3;
-load`:tests/data/fit/ARMA4;
-load`:tests/data/fit/ARIMA1;
-load`:tests/data/fit/ARIMA2;
-load`:tests/data/fit/ARIMA3;
-load`:tests/data/fit/ARIMA4;
-load`:tests/data/fit/SARIMA1;
-load`:tests/data/fit/SARIMA2;
-load`:tests/data/fit/SARIMA3;
-load`:tests/data/fit/SARIMA4;
+// Load files
+fileList:`AR1`AR2`AR3`AR4`ARCH1`ARCH2`ARMA1`ARMA2`ARMA3`ARMA4`ARIMA1`ARIMA2,
+         `ARIMA3`ARIMA4`SARIMA1`SARIMA2`SARIMA3`SARIMA4
+loadFunc:{load hsym`$":tests/data/",x,string y}
+loadFunc["fit/"]each fileList;
+loadFunc["pred/pred"]each fileList;
 
-// Load in predictions
-load`:tests/data/pred/predAR1;
-load`:tests/data/pred/predAR2;
-load`:tests/data/pred/predAR3;
-load`:tests/data/pred/predAR4;
-load`:tests/data/pred/predARCH1;
-load`:tests/data/pred/predARCH2;
-load`:tests/data/pred/predARMA1;
-load`:tests/data/pred/predARMA2;
-load`:tests/data/pred/predARMA3;
-load`:tests/data/pred/predARMA4;
-load`:tests/data/pred/predARIMA1;
-load`:tests/data/pred/predARIMA2;
-load`:tests/data/pred/predARIMA3;
-load`:tests/data/pred/predARIMA4;
-load`:tests/data/pred/predSARIMA1;
-load`:tests/data/pred/predSARIMA2;
-load`:tests/data/pred/predSARIMA3;
-load`:tests/data/pred/predSARIMA4;
 
 // AR tests
 
