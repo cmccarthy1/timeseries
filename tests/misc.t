@@ -1,40 +1,44 @@
 \l tm.q
 .tm.loadfile`:init.q
 
-// rounding function
-round:{y*"j"$x%y}
+\S 42
 
-// Time Series data
-\l tm.q
-.tm.loadfile`:init.q
+// Training data
+endogInt  :10000?1000
+endogFloat:10000?1000f
+exogInt   :10000 50#50000?1000
+exogFloat :10000 50#50000?1000f
+exogMixed :(10000 20#20000?1000),'(10000 20#20000?1000f),'(10000 10#10000?0b)
 
-// Time Series data
-load`:tests/data/endogInt;
-load`:tests/data/endogIntFuture;
-load`:tests/data/endogFloat;
-load`:tests/data/endogFloatFuture;
-load`:tests/data/exogInt;
-load`:tests/data/exogIntFuture;
-load`:tests/data/exogFloat;
-load`:tests/data/exogFloatFuture;
-load`:tests/data/exogMixed;
-load`:tests/data/exogMixedFuture;
+// Testing data
+endogIntFuture  :1000?1000
+endogFloatFuture:1000?1000f
+exogIntFuture   :1000 50#5000?1000
+exogFloatFuture :1000 50#5000?1000f
+exogMixedFuture :(1000 20#20000?1000),'(1000 20#20000?1000f),'(1000 10#10000?0b)
+
+// Load in function return
+load`:tests/data/misc/stationalityTab1;
+load`:tests/data/misc/stationalityTab2;
+load`:tests/data/misc/aicScore1;
+load`:tests/data/misc/aicScore2;
+load`:tests/data/misc/aicScore3;
+load`:tests/data/misc/aicScore4;
+load`:tests/data/misc/windowTab1;
+load`:tests/data/misc/windowTab2;
+load`:tests/data/misc/lagTab1;
+load`:tests/data/misc/lagTab2;
 
 // Stationality
 
-// Staionary columns
-dcols:`ADFstat`pvalue`stationary,`$raze each"CriticalValue_",/:string(1;5;10),\:"%";
-
-// Test return of stationality functions
-cols[value .tm.stationality[endogInt]]~dcols
-cols[value .tm.stationality[endogFloat]]~dcols
+.tm.stationality[endogInt  ]~stationalityTab1
+.tm.stationality[endogFloat]~stationalityTab2
 
 // aicparam 
 
 // Set up parameters
 dictKeys :`endog`exog
 paramKeys:`p`d`q`tr
-aicKeys  :`p`d`q`tr`score
 
 trainDict1:dictKeys!(endogInt  ;()       )
 trainDict2:dictKeys!(endogInt  ;exogFloat)
@@ -49,21 +53,20 @@ testDict4:dictKeys!(endogFloatFuture;exogMixedFuture)
 params:paramKeys!(1 1 3 2;1 0 1 0;1 0 2 0;0011b)
 
 // Test return of aicparam
-round[.tm.aicParam[trainDict1;testDict1;10;params];.001]~aicKeys!1 1 1 0 77.013
-round[.tm.aicParam[trainDict2;testDict2;10;params];.001]~aicKeys!1 0 0 0 70.563
-round[.tm.aicParam[trainDict3;testDict3;10;params];.001]~aicKeys!1 0 0 0 74.019
-round[.tm.aicParam[trainDict4;testDict4;10;params];.001]~aicKeys!1 0 0 0 74.024
-
+.tm.aicParam[trainDict1;testDict1;1000;params]~aicScore1
+.tm.aicParam[trainDict2;testDict2;1000;params]~aicScore2
+.tm.aicParam[trainDict3;testDict3;1000;params]~aicScore3
+.tm.aicParam[trainDict4;testDict4;1000;params]~aicScore4
 
 // Feature Exraction time Series tables
 
 // Set up tables
-ts_tab:([]"p"$"d"$til 10;10?10f;10?100)
+ts_tab:([]"p"$"d"$til 1000;1000?10f;1000?100;1000?1f;1000?1000)
 
-// Windowed features
-cols[.tm.tsWindow[ts_tab;`x1`x2;`max`min`avg;2 3]]~`x`x1`x2`max_2_x1`max_2_x2`max_3_x1`max_3_x2`min_2_x1`min_2_x2`min_3_x1`min_3_x2`avg_2_x1`avg_2_x2`avg_3_x1`avg_3_x2
-count[.tm.tsWindow[ts_tab;`x1`x2;enlist`max;2 4]]~6
+// Test windowed features
+.tm.tsWindow[ts_tab;`x1`x2`x3`x4;`max`min`avg;2 3     ]~windowTab1
+.tm.tsWindow[ts_tab;`x1`x2      ;`min`avg    ;enlist 2]~windowTab2
 
-// Lagged Features
-cols[.tm.tsLag[ts_tab;`x1`x2;enlist 3]]~`x`x1`x2`x1_xprev_3`x2_xprev_3
-count[.tm.tsLag[ts_tab;enlist`x2;enlist 3]]~10
+// Test lagged features
+.tm.tsLag[ts_tab;`x1`x2`x4;enlist 3]~lagTab1
+.tm.tsLag[ts_tab;enlist`x1;2 4 6   ]~lagTab2
