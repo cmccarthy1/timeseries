@@ -117,7 +117,7 @@ SARIMA.fit:{[endog;exog;lags;diff;resid;trend;seas]
 // @kind function
 // @category modelFit
 // @fileoverview Fit an AutoRegressive Conditional Heteroscedasticity model (ARCH)
-// @param err    {num[]} Residual errors from fitted time series model
+// @param err   {num[]} Residual errors from fitted time series model
 // @param lags  {integer} The number/order of time  lags of the model
 // @return {dict} All information required to use a fit model for the prediction of
 //   new values based on incoming data
