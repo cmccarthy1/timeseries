@@ -37,9 +37,8 @@ load`:tests/data/fit/nonStat;
 .tm.AR.fit[endogFloat;exogInt  ;2;1b]~AR3
 .tm.AR.fit[endogFloat;exogMixed;4;0b]~AR4
 
-failingTest[.tm.AR.fit;(endogInt  ;5000#exogInt  ;1;1b);0b;"Endog length less than length"                     ]
-failingTest[.tm.AR.fit;(endogFloat;5000#exogFloat;1;1b);0b;"Endog length less than length"                     ]
-failingTest[.tm.AR.fit;(nonStat   ;()            ;1;1b);0b;"Time series not stationary, try another value of d"]
+failingTest[.tm.AR.fit;(endogInt  ;5000#exogInt  ;1;1b);0b;"Endog length less than length"]
+failingTest[.tm.AR.fit;(endogFloat;5000#exogFloat;1;1b);0b;"Endog length less than length"]
 
 
 // ARMA tests

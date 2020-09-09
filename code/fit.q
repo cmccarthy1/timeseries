@@ -17,8 +17,6 @@ AR.fit:{[endog;exog;lags;trend]
   // cast endog to floating value
   endog:"f"$endog;
   exog:i.fitDataCheck[endog;exog];
-  // AR models require no non seasonal differencing steps
-  i.differ[endog;0;()!()];
   // Estimate coefficients
   coeff:$[sum trend,count[exog];
     i.estimateParams[endog;exog;endog;`p`q`tr!lags,0,trend];
